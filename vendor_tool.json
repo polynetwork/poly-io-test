@@ -1,0 +1,21 @@
+{
+	"AllianceJsonRpcAddress": "http://0.0.0.0:40336",
+	"WalletFile": "/data/gopath/multi-chain/alliance/wallet.dat",
+	"WalletPwd": "",
+	"BtcWalletPwd": "",
+	"AlliaObLoopWaitTime": 2,
+	"BtcPrivkFile": "/Users/zou/go/src/github.com/ontio/cross_chain_test/btcprivk",
+	"WatchingKeyToSign": "makeBtcTx",
+	"ConfigBitcoinNet": "regtest",
+	"ConfigDBPath": "/data/gopath/multi-chain/btc_spvcli-wif/db",
+	"RestPort": 50071,
+	"SleepTime": 10,
+	"AlliaNet": "testnet",
+	"CircleToSaveHeight": 300,
+	"MaxReadSize": 5000000,
+	"Redeem": "522102ebe125c196f7cd2...ccef0186c669eadf74814e53ae",
+	"SignerAddr": "",
+	"ObServerAddr": "",
+	"AlliaStartHeight": 0,
+	"WebServerPort": ""
+}
