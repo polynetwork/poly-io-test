@@ -17,7 +17,7 @@
 package testcase
 
 import (
-	"github.com/polynetwork/cross_chain_test/testframework"
+	"github.com/polynetwork/poly-io-test/testframework"
 )
 
 //TestCase list
@@ -58,6 +58,7 @@ func init() {
 	testframework.TFramework.RegTestCase("OngCircle", OngCircle)
 	testframework.TFramework.RegTestCase("Erc20Circle", Erc20Circle)
 	testframework.TFramework.RegTestCase("Oep4Circle", Oep4Circle)
+	testframework.TFramework.RegTestCase("OntCircleWithoutCosmos", OntCircleWithoutCosmos)
 
 	//no ether
 	testframework.TFramework.RegTestCase("BtcOntCircle", BtcOntCircle)

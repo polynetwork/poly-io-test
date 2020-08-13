@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/polynetwork/cross_chain_test/log"
+	"github.com/polynetwork/poly-io-test/log"
 	"io/ioutil"
 	"os"
 )

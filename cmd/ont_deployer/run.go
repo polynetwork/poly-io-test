@@ -22,8 +22,8 @@ import (
 	"fmt"
 	common2 "github.com/ethereum/go-ethereum/common"
 	"github.com/ontio/ontology/common"
-	"github.com/polynetwork/cross_chain_test/chains/ont"
-	"github.com/polynetwork/cross_chain_test/config"
+	"github.com/polynetwork/poly-io-test/chains/ont"
+	"github.com/polynetwork/poly-io-test/config"
 )
 
 var (

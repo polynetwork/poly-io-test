@@ -3,8 +3,8 @@ package eth
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/polynetwork/cross_chain_test/chains/eth/abi/ongx"
-	"github.com/polynetwork/cross_chain_test/config"
+	"github.com/polynetwork/poly-io-test/chains/eth/abi/ongx"
+	"github.com/polynetwork/poly-io-test/config"
 	"testing"
 )
 

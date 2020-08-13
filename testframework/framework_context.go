@@ -18,11 +18,11 @@ package testframework
 
 import (
 	"fmt"
-	"github.com/polynetwork/cross_chain_test/chains/btc"
-	"github.com/polynetwork/cross_chain_test/chains/cosmos"
-	"github.com/polynetwork/cross_chain_test/chains/eth"
-	"github.com/polynetwork/cross_chain_test/chains/ont"
 	"github.com/polynetwork/poly-go-sdk"
+	"github.com/polynetwork/poly-io-test/chains/btc"
+	"github.com/polynetwork/poly-io-test/chains/cosmos"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/ont"
 	"sync"
 	"time"
 )

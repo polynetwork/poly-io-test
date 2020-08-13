@@ -31,17 +31,17 @@ import (
 	"github.com/ontio/ontology-go-sdk"
 	ontcommon "github.com/ontio/ontology/common"
 	nutils "github.com/ontio/ontology/smartcontract/service/native/utils"
-	"github.com/polynetwork/cross_chain_test/chains/eth"
-	btcx_abi "github.com/polynetwork/cross_chain_test/chains/eth/abi/btcx"
-	"github.com/polynetwork/cross_chain_test/chains/eth/abi/erc20"
-	lock_proxy_abi "github.com/polynetwork/cross_chain_test/chains/eth/abi/lockproxy"
-	oep4_abi "github.com/polynetwork/cross_chain_test/chains/eth/abi/oep4"
-	"github.com/polynetwork/cross_chain_test/chains/eth/abi/ongx"
-	"github.com/polynetwork/cross_chain_test/chains/eth/abi/ontx"
-	"github.com/polynetwork/cross_chain_test/chains/ont"
-	"github.com/polynetwork/cross_chain_test/config"
-	"github.com/polynetwork/cross_chain_test/log"
-	"github.com/polynetwork/cross_chain_test/testframework"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	btcx_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/btcx"
+	"github.com/polynetwork/poly-io-test/chains/eth/abi/erc20"
+	lock_proxy_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/lockproxy"
+	oep4_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/oep4"
+	"github.com/polynetwork/poly-io-test/chains/eth/abi/ongx"
+	"github.com/polynetwork/poly-io-test/chains/eth/abi/ontx"
+	"github.com/polynetwork/poly-io-test/chains/ont"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly-io-test/testframework"
 	"math/big"
 	"strings"
 	"time"
@@ -87,7 +87,7 @@ func SendEOntCrossOnt(ctx *testframework.TestFrameworkContext, status *testframe
 
 	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
 	if err != nil {
-		return fmt.Errorf("SendEOntCrossOnt, abi.JSON error:" + err.Error())
+		return fmt.Errorf("SendEOntCrossOnt, abi.JSON error: %v", err)
 	}
 
 	assetaddress := ethcommon.HexToAddress(onte)
@@ -95,7 +95,7 @@ func SendEOntCrossOnt(ctx *testframework.TestFrameworkContext, status *testframe
 
 	ontxContract, err := ontx.NewONTX(assetaddress, ctx.EthInvoker.ETHUtil.GetEthClient())
 	if err != nil {
-		return fmt.Errorf("SendEOntCrossOnt, NewONTX error:" + err.Error())
+		return fmt.Errorf("SendEOntCrossOnt, NewONTX error: %v", err)
 	}
 	nonce := ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
 	auth := MakeEthAuth(ctx.EthInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
@@ -111,7 +111,7 @@ func SendEOntCrossOnt(ctx *testframework.TestFrameworkContext, status *testframe
 	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.ONT_CHAIN_ID), ctx.OntInvoker.OntAcc.Address[:],
 		big.NewInt(int64(amount)))
 	if err != nil {
-		return fmt.Errorf("SendEOntCrossOnt, contractabi.Pack error:" + err.Error())
+		return fmt.Errorf("SendEOntCrossOnt, contractabi.Pack error: %v", err)
 	}
 
 	callMsg := ethereum.CallMsg{

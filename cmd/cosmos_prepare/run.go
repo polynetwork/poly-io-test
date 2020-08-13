@@ -18,9 +18,9 @@ package main
 
 import (
 	"flag"
-	"github.com/polynetwork/cross_chain_test/chains/cosmos"
-	"github.com/polynetwork/cross_chain_test/config"
-	"github.com/polynetwork/cross_chain_test/log"
+	"github.com/polynetwork/poly-io-test/chains/cosmos"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
 )
 
 var (

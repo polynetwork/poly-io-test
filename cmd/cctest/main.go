@@ -19,15 +19,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/polynetwork/cross_chain_test/chains/btc"
-	"github.com/polynetwork/cross_chain_test/chains/cosmos"
-	"github.com/polynetwork/cross_chain_test/chains/eth"
-	"github.com/polynetwork/cross_chain_test/chains/ont"
-	"github.com/polynetwork/cross_chain_test/config"
-	"github.com/polynetwork/cross_chain_test/log"
-	_ "github.com/polynetwork/cross_chain_test/testcase"
-	"github.com/polynetwork/cross_chain_test/testframework"
 	"github.com/polynetwork/poly-go-sdk"
+	"github.com/polynetwork/poly-io-test/chains/btc"
+	"github.com/polynetwork/poly-io-test/chains/cosmos"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/ont"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+	_ "github.com/polynetwork/poly-io-test/testcase"
+	"github.com/polynetwork/poly-io-test/testframework"
 	"os"
 	"os/signal"
 	"strings"
@@ -41,7 +41,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&TestConfig, "cfg", "./config.json", "Config of cross_chain_test")
+	flag.StringVar(&TestConfig, "cfg", "./config.json", "Config of poly-io-test")
 	flag.StringVar(&TestCases, "t", "", "Test case to run. use ',' to split test case")
 	flag.IntVar(&LoopNumber, "loop", 1, " the number the whole test cases run")
 	flag.Parse()
@@ -64,16 +64,16 @@ func main() {
 		config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
 		config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
 	if err != nil {
-		panic(err)
+		log.Errorf("failed to new a btc invoker, do not test cases about BTC: %v", err)
 	}
 	ontInvoker, err := ont.NewOntInvoker(config.DefConfig.OntJsonRpcAddress, config.DefConfig.OntContractsAvmPath,
 		config.DefConfig.OntWallet, config.DefConfig.OntWalletPassword)
 	if err != nil {
-		panic(err)
+		log.Errorf("failed to new a ont invoker, do not test cases about ONT: %v", err)
 	}
 	cmInvoker, err := cosmos.NewCosmosInvoker()
 	if err != nil {
-		panic(err)
+		log.Errorf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
 	}
 
 	testCases := make([]string, 0)
