@@ -23,14 +23,14 @@ import (
 //TestCase list
 func init() {
 	testframework.TFramework.RegTestCase("SendOntToEthChain", SendOntToEthChain)
-	testframework.TFramework.RegTestCase("SendOnteToOntChain", SendEOntToOntChain)
+	testframework.TFramework.RegTestCase("SendOnteToOntChain", SendEOntToOntChain) // Onte means ONT on ethereum.
 	testframework.TFramework.RegTestCase("SendOngToEthChain", SendOngToEthChain)
 	testframework.TFramework.RegTestCase("SendOngeToOntChain", SendOngeToOntChain)
 	testframework.TFramework.RegTestCase("SendOEP4ToEthChain", SendOEP4ToEthChain)
 	testframework.TFramework.RegTestCase("SendOEP4eToOntChain", SendOEP4eToOntChain)
 
 	testframework.TFramework.RegTestCase("SendEthToOntChain", SendEthToOntChain)
-	testframework.TFramework.RegTestCase("SendEthoToEthChain", SendEthoToEthChain)
+	testframework.TFramework.RegTestCase("SendEthoToEthChain", SendEthoToEthChain) // Etho means ETH on ontology.
 	testframework.TFramework.RegTestCase("SendERC20ToOntChain", SendERC20ToOntChain)
 	testframework.TFramework.RegTestCase("SendERC20oToEthChain", SendOERC20ToEthChain)
 
