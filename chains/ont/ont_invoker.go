@@ -148,7 +148,10 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{ethoAddr[:], 2, ethAddr}})
 	if err != nil {
-		return nil, fmt.Errorf("etho bindAssetHash error: %v", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("etho bindAssetHash error: %v", err)
+		}
+		log.Warnf("etho is already binded: %v", err)
 	}
 	tx5, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
 		invoker.OntAcc,
@@ -156,7 +159,10 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{ethoAddr[:], config.DefConfig.CMCrossChainId, []byte(config.CM_ETHX)}})
 	if err != nil {
-		return nil, fmt.Errorf("etho bindAssetHash error: %v", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("eth on cosmos bindAssetHash error: %v", err)
+		}
+		log.Warnf("eth on cosmos is already binded: %v", err)
 	}
 
 	// erc20
@@ -189,7 +195,10 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{erc20oAddr[:], 2, erc20Addr}})
 	if err != nil {
-		return nil, fmt.Errorf("erc20 bindAssetHash error: %v", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("erc20 bindAssetHash error: %v", err)
+		}
+		log.Warnf("erc20 on ethereum is already binded: %v", err)
 	}
 
 	tx6, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
@@ -198,7 +207,10 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{erc20oAddr[:], config.DefConfig.CMCrossChainId, []byte(config.CM_ERC20)}})
 	if err != nil {
-		return nil, fmt.Errorf("etho bindAssetHash error: %v", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("erc20 on cosmos bindAssetHash error: %v", err)
+		}
+		log.Warnf("erc20 on cosmos is already binded: %v", err)
 	}
 
 	txs = append(txs, tx1)
@@ -240,7 +252,10 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{utils2.OntContractAddress, 2, onteAddr}})
 	if err != nil {
-		return nil, fmt.Errorf("bindAssetHash Ont error: %s", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("bindAssetHash Ont error: %s", err)
+		}
+		log.Warnf("ont on ethereum is already binded: %v", err)
 	}
 	txs = append(txs, tx1)
 	tx2, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
@@ -250,7 +265,10 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		[]interface{}{"bindAssetHash", []interface{}{utils2.OntContractAddress, config.DefConfig.CMCrossChainId,
 			[]byte(config.CM_ONT)}})
 	if err != nil {
-		return nil, fmt.Errorf("bindAssetHash Ont of cosmos error: %s", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("bindAssetHash Ont of cosmos error: %s", err)
+		}
+		log.Warnf("ont on cosmos is already binded: %v", err)
 	}
 	txs = append(txs, tx2)
 
@@ -262,7 +280,10 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{utils2.OngContractAddress[:], 2, ongeAddr}})
 	if err != nil {
-		return nil, fmt.Errorf("bindAssetHash ong error: %s", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("bindAssetHash ong error: %s", err)
+		}
+		log.Warnf("ong on ethereum is already binded: %v", err)
 	}
 	txs = append(txs, tx3)
 	tx4, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
@@ -272,7 +293,10 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		[]interface{}{"bindAssetHash", []interface{}{utils2.OngContractAddress[:], config.DefConfig.CMCrossChainId,
 			[]byte(config.CM_ONG)}})
 	if err != nil {
-		return nil, fmt.Errorf("bindAssetHash ong of cosmos error: %s", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("bindAssetHash ong of cosmos error: %s", err)
+		}
+		log.Warnf("ong on cosmos is already binded: %v", err)
 	}
 	txs = append(txs, tx4)
 
@@ -285,7 +309,10 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{oep4Addr[:], 2, oep4eAddr}})
 	if err != nil {
-		return nil, fmt.Errorf("bindAssetHash oep4 error: %s", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("bindAssetHash oep4 error: %s", err)
+		}
+		log.Warnf("oep4 on ethereum is already binded: %v", err)
 	}
 	txs = append(txs, tx5)
 	tx6, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
@@ -294,7 +321,10 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		contractAddress,
 		[]interface{}{"bindAssetHash", []interface{}{oep4Addr[:], config.DefConfig.CMCrossChainId, []byte(config.CM_OEP4)}})
 	if err != nil {
-		return nil, fmt.Errorf("bindAssetHash oep4 of cosmos error: %s", err)
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("bindAssetHash oep4 of cosmos error: %s", err)
+		}
+		log.Warnf("oep4 on cosmos is already binded: %v", err)
 	}
 	txs = append(txs, tx6)
 	tx7, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
@@ -374,6 +404,12 @@ func (invoker *OntInvoker) SetOtherLockProxy(other []byte, toChainId int) (commo
 		invoker.OntAcc,
 		addr,
 		[]interface{}{"bindProxyHash", []interface{}{toChainId, other}})
+	if err != nil {
+		if !strings.Contains(err.Error(), "already") {
+			return common.UINT256_EMPTY, fmt.Errorf("bindProxyHash for chain-id %d error: %v", toChainId, err)
+		}
+		log.Warnf("proxy on chain-id %d is already binded: %v", toChainId, err)
+	}
 	invoker.WaitTxConfirmation(txhash)
 	return txhash, nil
 }

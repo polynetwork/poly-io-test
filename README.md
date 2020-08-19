@@ -21,64 +21,66 @@ The code is still under development.
 
 ## Configuration
 
+Before you try the testcase or other functions, you need to finish the configuration file: 
+
 ```
 {
    ###
    # This is BTC related settings
-   "BtcRestAddr": "http://172.168.3.10:20336", # BTC node
+   "BtcRestAddr": "http://ip:port", # BTC node
    "BtcRestUser": "test",
    "BtcRestPwd": "test",
    "BtcFee": 1500, 
-   "BtcRedeem": "522103c4564b837674de2482961a8d5f2a24a7e11e8a97aac5e92ac2e64500219144512102ccc07d3df7da58bb6fa5cfe5d7be415ff9463171b2600c93c080fcd0d49576a721036ec6299c1b14e57b45f1ad85eecbc48ad5447a05158a1bfb2ffb689ad69490d353ae", # Multi-sign Redeem script
+   "BtcRedeem": "552102dec9a415b6384ec0a9331d0cdf02020f0f1e5731c327b86e2b5a92455a289748210365b1066bcfa21987c3e207b92e309b95ca6bee5f1133cf04d6ed4ed265eafdbc21031104e387cd1a103c27fdc8a52d5c68dec25ddfb2f574fbdca405edfd8c5187de21031fdb4b44a9f20883aff505009ebc18702774c105cb04b1eecebcb294d404b1cb210387cda955196cc2b2fc0adbbbac1776f8de77b563c6d2a06a77d96457dc3d0d1f2102dd7767b6a7cc83693343ba721e0f5f4c7b4b8d85eeb7aec20d227625ec0f59d321034ad129efdab75061e8d4def08f5911495af2dae6d3e9a4b6e7aeb5186fa432fc57ae", # Multi-sign Redeem script(testnet)
    "BtcNetType": "test", # Network Type
-   "BtcMultiSigNum": 3, # Multi-signature total
-   "BtcMultiSigRequire": 2, # Minimum number of multi-signatures
-   "BtcEncryptedPrivateKeyFile": "/data/poly_deployer/lib/vendor_tool/btcprivk", # Multi-signature encrypted wallet storage path
+   "BtcMultiSigNum": 7, # Multi-signature total
+   "BtcMultiSigRequire": 5, # Minimum number of multi-signatures
+   "BtcEncryptedPrivateKeyFile": "./btcprivk", # Multi-signature encrypted wallet storage path
    "BtcEncryptedPrivateKeyPwd": "123",
-   "BtcVendorSigningToolConfFile": "/data/poly_deployer/lib/vendor_tool/vendor_tool.json", # vendor configuration file
+   "BtcVendorSigningToolConfFile": "./vendor_tool.json", # vendor configuration file
    "BtcFeeRate": 10, # Multi-signature rate, when BTC returns to Bitcoin, unlock transaction rate
    "BtcMinChange": 8000, # Multi-sign the minimum UTXO value allowed in the Poly chain contract
    "BtcMinOutputValFromContract": 10000, # The minimum allowable withdrawal amount in the BTCX contract
-   "BtcSignerPrivateKey": "cRRMYvoHPNQu1tCz4ajPxytBVc2SN6GWLAVuyjzm4MVwyqZVrAcX", # BTC simulates the private key for sending transactions
-   "BtcExistingVendorPrivks": "cREJsmv4W9Lr4QhvnQrA77tTUZ5g488qNr2cvwRoSnpxryGRL92N,cVJqF57cdiSkFwpnTqEzjX7hCxZH95vxwenuJtBPgABPCwBDymEk,cTfnpP7CBFQ5mtK2BKPJLUnRJBYgnnRX7M8MnWpvWthPRoB3yGwR", # Existing multi-signature wallet private key
+   "BtcSignerPrivateKey": "cRRMYvoHPN...MVwyqZVrAcX", # BTC simulates the private key for sending transactions
+   "BtcExistingVendorPrivks": "cREJsmv4W9Lr4Qh...wRoSnpxryGRL92N,cVJqF57c...PCwBDymEk,cTfnpP7C...pvWthPRoB3yGwR", # Existing multi-signature wallet private key
    ###
    
    ###
    # eth
-   "EthURL": "http://18.139.17.85:10331", # Ethereum node
-   "ETHPrivateKey": "AEC101ECDB5C86931E0CA5E635824F0D0F05240760C01DDEE64BE90B2A2608A9", # Etherem simulates the private key of the transaction
+   "EthURL": "http://ip:port", # Ethereum node
+   "ETHPrivateKey": "AEC101ECD...BE90B2A2608A9", # Etherem simulates the private key of the transaction
    ###
    
    ###
    # Ontology
-   "OntJsonRpcAddress": "http://172.168.3.73:20336", # Ontology
-   "OntWallet": ".wallets/ont_dev.dat",
-   "OntWalletPassword": "admin",
-   "GasPrice": 0,
+   "OntJsonRpcAddress": "http://ip:port", # Ontology
+   "OntWallet": "./wallet.dat",
+   "OntWalletPassword": "pwd",
+   "GasPrice": 2500,
    "GasLimit": 30000000,
-   "OntContractsAvmPath": "./chains/ont/avm", # Avm of all ontology contracts
+   "OntContractsAvmPath": "./avm", # Avm of all ontology contracts
    ###
    
    ###
    # cosmos
-   "CMWalletPath": ".wallets/cosmos_key",#
-   "CMWalletPwd": "11111111",
-   "CMRpcUrl": "http://172.168.3.95:26657",
-   "CMChainId": "cc-cosmos",
-   "CMGasPrice": "0.000001stake",
+   "CMWalletPath": "./cosmos_key",#
+   "CMWalletPwd": "pwd",
+   "CMRpcUrl": "http://ip:port",
+   "CMChainId": "cosmos-gaia",
+   "CMGasPrice": "0.00001stake",
    "CMGas": 200000,
-   "CMCrossChainId": 7,
+   "CMCrossChainId": 1000,
    ###
    
    ###
    # Poly
-   "RCWallet": "/Users/zou/Desktop/work/code/poly_d/poly_deployer_linux_testnet/lib/poly/wallet.dat",
-   "RCWalletPwd": "4cUYqGj2yib718E7ZmGQc",
-   "RchainJsonRpcAddress": "http://172.168.3.73:40336",
+   "RCWallet": "./wallet.dat",
+   "RCWalletPwd": "pwd",
+   "RchainJsonRpcAddress": "http://ip:port",
 	 ###
 	 
 	 ###
-	 # 发测试交易的配置
+	 # configuration for sending tx
    "ReportInterval": 10,
    "ReportDir": "./report", # Test case status report
    "BatchTxNum": 100, # Batch send transaction: how many batches
@@ -87,26 +89,28 @@ The code is still under development.
    ###
    
    ###
-   # This part is the contract configuration of each chain. After deployment, it is automatically written
-   "EthErc20": "0xE4dc8fa991a3e0BC41f5E736BAc69b8186a1386D",
-   "EthOep4": "0x15b55ca5C3082c95Bd4707651494384D2d2A6b50",
-   "Eccd": "0x9770198364BF08C0fEd483E67C22551632500339",
-   "Eccm": "0xF3A7B7B56E4935ACA162F187AD5526f37f8F4c52",
-   "Eccmp": "0xDff4A9B177fa89394a10506b9f99AadA31B635f8",
-   "EthLockProxy": "0x20eFad169D803D8d3Ca04f5a71C67A52de687c26",
-   "EthOngx": "0x1ed03F921425883ceF5eE59ff129192Ba87DaC48",
-   "EthOntx": "0x1666970b08DD77D67aB43441E519381d6bA9c49c",
-   "BtceContractAddress": "0x8940fa5B2bb6e961D0bF3E8C3FBd9757ffCDDAf1",
-   "OntErc20": "2bd086d90c282a26d021d01039b84a968ed57444",
-   "OntOep4": "d6967fa9b11b0836ec9dc8572f4bab6f65d710f9",
-   "OntLockProxy": "ebad45b887c6bf7cc4c1df8f72da156bc91b04b7",
-   "OntEth": "d6b4cd930377e7e81d1ace85bbb9ce59f4dd9410",
-   "BtcoContractAddress": "d177d904456479dd592d4ce368e5d97ec8ffbcee",
-   "CMLockProxy": "f71b55ef55cedc91fd007f7a9ba386ec978f3aa8",
+   # This part is the contract configuration for each chain. 
+   # After deployment, it is automatically written.
+   # follows are contracts for testnet
+   "EthErc20": "0x33fb970bE14548309bbbdcbFe6327865C6d71b70",
+	 "EthOep4": "0xde5dBad6ab0FD0EBDEBf6B6cf4eB93D51207dc8f",
+	 "Eccd": "0xA38366d552672556CE82426Da5031E2Ae0598dcD",
+	 "Eccm": "0xcF9b45217192F70c1df42Ba460Fd644FDB248eA5",
+	 "Eccmp": "0xb600c8a2e8852832B75DB9Da1A3A1c173eAb28d8",
+	 "EthLockProxy": "0xE44dDbAb7a9Aa11b9D0cA8b686F9E0299DB735d1",
+	 "EthOngx": "0x0A03605ad4E8381855cF7b650f9482002267ad33",
+	 "EthOntx": "0x8cE92808118Bc43c2B8635d3eb6b1b67cD2fB9a0",
+	 "BtceContractAddress": "0x92705a16815A3d1AEC3cE9Cc273C5aa302961FcC",
+	 "OntErc20": "e930755b130dccb25dc3cfee2b2e30d9370c1a75",
+	 "OntOep4": "969850e009b5e2a061694f3479ec8e44bc68bcd3",
+	 "OntLockProxy": "34a593c5ccfb8590e9a4bc7018529016aa4a55ad",
+	 "OntEth": "ec2e25c4c12371ca37b129477a23a152e62ff103",
+	 "BtcoContractAddress": "814d32455c21bfc25c33b75ccbfc34fe8e79bff1",
+	 "CMLockProxy": "f71b55ef55cedc91fd007f7a9ba386ec978f3aa8",
    ###
    
    ###
-   # Test transaction limit
+   # Test transaction limit. The cross-chain amount would not be over the limit.
    "BtcValLimit": 100000,
    "OntValLimit": 100,
    "OngValLimit": 100000,
@@ -116,4 +120,32 @@ The code is still under development.
    ###
 }
 ```
+
+## Send Transactions To Testnet
+
+Build the `cctest` like follow:
+
+```
+go build -o cctest cmd/cctest/main.go
+```
+
+You can run a testcase like: 
+
+```
+./cctest -cfg=your_config_file -t case_name
+```
+
+Some cases:
+
+| Case Name          | Desc                                                         |
+| ------------------ | ------------------------------------------------------------ |
+| SendOntToEthChain  | Send ONT to ethereum. Contract `EthOntx` will receive your ONT. |
+| SendOnteToOntChain | Send ONT back to ontology. It would transfer from `EthOntx` to Ontology. |
+| SendEthToOntChain  | Send ETH to ontology. Contract `OntEth` will receive your ETH. |
+| SendEthoToEthChain | Send ETH back to ethereum.                                   |
+| SendBtcToOntChain  | Send BTC to ontology. Contract `BtcoContractAddress` will mint a reflection coin BTCX for you. |
+
+More case see [here](https://github.com/polynetwork/poly-io-test/blob/master/testcase/init.go).
+
+If you want more details about sending cross-chain transactions, you can read these [documents](https://github.com/polynetwork/docs/tree/master/examples)
 
