@@ -33,11 +33,12 @@ import (
 	"github.com/polynetwork/cosmos-poly-module/btcx"
 	"github.com/polynetwork/cosmos-poly-module/headersync"
 	"github.com/polynetwork/cosmos-poly-module/lockproxy"
-	"github.com/polynetwork/cross_chain_test/config"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/privval"
-	"github.com/tendermint/tendermint/rpc/client"
+	"github.com/tendermint/tendermint/rpc/client/http"
 	"github.com/tendermint/tendermint/rpc/core/types"
 	"io/ioutil"
 	"strings"
@@ -46,7 +47,7 @@ import (
 )
 
 type CosmosInvoker struct {
-	RpcCli        *client.HTTP
+	RpcCli        *http.HTTP
 	Acc           *CosmosAcc
 	CosmosChainId string
 	CMGas         uint64
@@ -72,7 +73,7 @@ func NewCosmosInvoker() (*CosmosInvoker, error) {
 		conf.Seal()
 	}
 
-	invoker.RpcCli, err = client.NewHTTP(conf.CMRpcUrl, "/websocket")
+	invoker.RpcCli, err = http.New(conf.CMRpcUrl, "/websocket")
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +151,10 @@ func (invoker *CosmosInvoker) TransferCoins(toAddr, denom string, amt int64) (*c
 // TODO: not working for now. How can we get an PrivKeyEd25519 ?
 func (invoker *CosmosInvoker) CreateValidator(keyFile, stateFile, coin string, amt int64) (*coretypes.ResultBroadcastTx, error) {
 	pri := privval.LoadOrGenFilePV(keyFile, stateFile)
-	pk := pri.GetPubKey()
+	pk, err := pri.GetPubKey()
+	if err != nil {
+		return nil, err
+	}
 	valAcc := types.ValAddress(invoker.Acc.Acc)
 	var res *coretypes.ResultBroadcastTx
 	//res, err = invoker.TransferCoins(acc.String(), coin, 2 * amt)
@@ -163,7 +167,7 @@ func (invoker *CosmosInvoker) CreateValidator(keyFile, stateFile, coin string, a
 	msg := staking.NewMsgCreateValidator(valAcc, pk, types.NewInt64Coin(coin, amt),
 		staking.NewDescription(fmt.Sprintf("add_val: %s", valAcc.String()), "", "", "", ""),
 		cRate, types.OneInt())
-	res, err := invoker.sendCosmosTx([]types.Msg{msg})
+	res, err = invoker.sendCosmosTx([]types.Msg{msg})
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +422,7 @@ type CosmosAcc struct {
 	AccNum     uint64
 }
 
-func NewCosmosAcc(wallet, pwd string, cli *client.HTTP, cdc *codec.Codec) (*CosmosAcc, error) {
+func NewCosmosAcc(wallet, pwd string, cli *http.HTTP, cdc *codec.Codec) (*CosmosAcc, error) {
 	acc := &CosmosAcc{}
 	bz, err := ioutil.ReadFile(wallet)
 	if err != nil {
@@ -432,7 +436,7 @@ func NewCosmosAcc(wallet, pwd string, cli *client.HTTP, cdc *codec.Codec) (*Cosm
 
 	acc.PrivateKey = privKey
 	acc.Acc = types.AccAddress(privKey.PubKey().Address().Bytes())
-
+	log.Infof("cosmos address: %s", acc.Acc.String())
 	var eAcc exported.Account
 	rawParam, err := cdc.MarshalJSON(auth.NewQueryAccountParams(acc.Acc))
 	if err != nil {

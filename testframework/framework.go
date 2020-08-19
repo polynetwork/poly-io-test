@@ -18,12 +18,12 @@ package testframework
 
 import (
 	"fmt"
-	"github.com/polynetwork/cross_chain_test/chains/btc"
-	"github.com/polynetwork/cross_chain_test/chains/cosmos"
-	"github.com/polynetwork/cross_chain_test/chains/eth"
-	"github.com/polynetwork/cross_chain_test/chains/ont"
-	"github.com/polynetwork/cross_chain_test/config"
-	"github.com/polynetwork/cross_chain_test/log"
+	"github.com/polynetwork/poly-io-test/chains/btc"
+	"github.com/polynetwork/poly-io-test/chains/cosmos"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/ont"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
 	"os"
 	"reflect"
 	"sync"
@@ -114,11 +114,19 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 
 	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.btcInvoker,
 		this.ontInvoker, this.cosmosInvoker)
-	go MonitorOnt(ctx)
+	if this.ontInvoker != nil {
+		go MonitorOnt(ctx)
+	}
 	go MonitorRChain(ctx)
-	go MonitorEthChain(ctx)
-	go MonitorBtc(ctx)
-	go MonitorCosmos(ctx)
+	if this.ethInvoker != nil {
+		go MonitorEthChain(ctx)
+	}
+	if this.btcInvoker != nil {
+		go MonitorBtc(ctx)
+	}
+	if this.cosmosInvoker != nil {
+		go MonitorCosmos(ctx)
+	}
 	go ReportPending(ctx)
 
 	wg := &sync.WaitGroup{}
@@ -173,28 +181,41 @@ func (this *TestFramework) SetCosmosInvoker(cmInvoker *cosmos.CosmosInvoker) {
 func (this *TestFramework) onTestStart() {
 	version, _ := this.ontInvoker.OntSdk.GetVersion()
 	log.Info("===============================================================")
-	log.Infof("-------CrossChain Test Start Version:%s", version)
+	log.Infof("-------CrossChain Test Start Version: %s", version)
 	log.Info("===============================================================")
 	log.Info("")
 	this.startTime = time.Now()
-	btcInfo, err := this.btcInvoker.GetAccInfo()
-	if err != nil {
-		panic(err)
+	str := ""
+	if this.btcInvoker != nil {
+		btcInfo, err := this.btcInvoker.GetAccInfo()
+		if err != nil {
+			panic(err)
+		}
+		str += btcInfo + "\n"
 	}
-	ethInfo, err := this.ethInvoker.GetAccInfo()
-	if err != nil {
-		panic(err)
+	if this.ethInvoker != nil {
+		ethInfo, err := this.ethInvoker.GetAccInfo()
+		if err != nil {
+			panic(err)
+		}
+		str += ethInfo + "\n"
 	}
-	ontInfo, err := this.ontInvoker.GetAccInfo()
-	if err != nil {
-		panic(err)
+	if this.ontInvoker != nil {
+		ontInfo, err := this.ontInvoker.GetAccInfo()
+		if err != nil {
+			panic(err)
+		}
+		str += ontInfo + "\n"
 	}
-	cmInfo, err := this.cosmosInvoker.GetAccInfo()
-	if err != nil {
-		panic(err)
+	if this.cosmosInvoker != nil {
+		cmInfo, err := this.cosmosInvoker.GetAccInfo()
+		if err != nil {
+			panic(err)
+		}
+		str += cmInfo + "\n"
 	}
 
-	log.Infof("account info: {\n %s\n %s\n %s\n %s\n}", btcInfo, ethInfo, ontInfo, cmInfo)
+	log.Infof("account info: {\n %s}", str)
 }
 
 //onTestStart invoke at the end of test

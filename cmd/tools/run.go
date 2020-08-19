@@ -34,15 +34,15 @@ import (
 	"github.com/ontio/ontology/smartcontract/service/native/cross_chain/header_sync"
 	"github.com/ontio/ontology/smartcontract/service/native/governance"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
-	"github.com/polynetwork/cross_chain_test/chains/btc"
-	cosmos2 "github.com/polynetwork/cross_chain_test/chains/cosmos"
-	"github.com/polynetwork/cross_chain_test/chains/eth"
-	"github.com/polynetwork/cross_chain_test/chains/eth/abi/eccm"
-	"github.com/polynetwork/cross_chain_test/chains/ont"
-	"github.com/polynetwork/cross_chain_test/config"
-	"github.com/polynetwork/cross_chain_test/log"
-	"github.com/polynetwork/cross_chain_test/testcase"
 	"github.com/polynetwork/poly-go-sdk"
+	"github.com/polynetwork/poly-io-test/chains/btc"
+	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/eth/abi/eccm"
+	"github.com/polynetwork/poly-io-test/chains/ont"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly-io-test/testcase"
 	"github.com/polynetwork/poly/common"
 	"github.com/polynetwork/poly/consensus/vbft/config"
 	"github.com/polynetwork/poly/native/service/governance/node_manager"
@@ -50,7 +50,7 @@ import (
 	"github.com/polynetwork/poly/native/service/governance/side_chain_manager"
 	"github.com/polynetwork/poly/native/service/header_sync/cosmos"
 	"github.com/polynetwork/poly/native/service/utils"
-	"github.com/tendermint/tendermint/rpc/client"
+	"github.com/tendermint/tendermint/rpc/client/http"
 	types2 "github.com/tendermint/tendermint/types"
 	"math/big"
 	"os"
@@ -552,7 +552,7 @@ func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Ac
 	log.Infof("successful to sync poly genesis header to cosmos: ( txhash: %s )", tx.Hash.String())
 }
 
-func getValidators(rpc *client.HTTP, h int64) ([]*types2.Validator, error) {
+func getValidators(rpc *http.HTTP, h int64) ([]*types2.Validator, error) {
 	p := 1
 	vSet := make([]*types2.Validator, 0)
 	for {
@@ -717,6 +717,27 @@ func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register ont chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, 4, 4, "neo",
+		1, []byte{}, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("neo chain %d already registered", 4)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("neo chain %d already requested", 4)
+			return true
+		}
+		panic(fmt.Errorf("RegisterNeoChain failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register neo chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }

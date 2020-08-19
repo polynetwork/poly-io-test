@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/polynetwork/cross_chain_test/log"
+	"github.com/polynetwork/poly-io-test/log"
 	"sync"
 	"time"
 )

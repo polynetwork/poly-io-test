@@ -1,0 +1,8 @@
+.idea/
+.idea/*
+.wallets/*
+report/*
+config-dev.json
+config-test.json
+config-main.json
+test.go

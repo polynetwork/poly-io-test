@@ -23,7 +23,7 @@ import (
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
-	"github.com/polynetwork/cross_chain_test/config"
+	"github.com/polynetwork/poly-io-test/config"
 	"io/ioutil"
 	"math/big"
 	"path"

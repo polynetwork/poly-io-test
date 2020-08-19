@@ -17,9 +17,9 @@
 package testcase
 
 import (
-	"github.com/polynetwork/cross_chain_test/config"
-	"github.com/polynetwork/cross_chain_test/log"
-	"github.com/polynetwork/cross_chain_test/testframework"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly-io-test/testframework"
 	"time"
 )
 
@@ -900,6 +900,34 @@ func SendZeroOntToEth(ctx *testframework.TestFrameworkContext, status *testframe
 		return false
 	}
 	log.Info("all success!")
+	status.SetItSuccess()
+	return true
+}
+
+func OntCircleWithoutCosmos(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.OntValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			// ont->eth
+			if err := SendOntCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("OntCircle, SendOntCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntCircle, send %d ont to eth, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEOntCrossOnt(ctx, status, config.DefConfig.EthOntx, amt); err != nil {
+				log.Errorf("OntCircle, SendEOntCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntCircle, send %d ont from ethereum to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("OntCircle, ont all received ( batch: %d )", i)
+	}
+
 	status.SetItSuccess()
 	return true
 }
