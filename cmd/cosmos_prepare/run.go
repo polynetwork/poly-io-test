@@ -17,10 +17,12 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
+	"strings"
 )
 
 var (
@@ -43,9 +45,13 @@ func main() {
 	}
 	res, err := invoker.CreateLockProxy()
 	if err != nil {
-		panic(err)
+		if !strings.Contains(err.Error(), "already") {
+			panic(err)
+		}
+		log.Infof("already created lockproxy %s", hex.EncodeToString(invoker.Acc.Acc.Bytes()))
+	} else {
+		invoker.WaitTx(res.Hash)
 	}
-	invoker.WaitTx(res.Hash)
 	err = invoker.SetupAllAssets(invoker.Acc.Acc.Bytes())
 	if err != nil {
 		panic(err)

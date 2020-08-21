@@ -47,13 +47,13 @@ func main() {
 
 	switch fnEth {
 	case "deploy":
-		SetupETHSmartContract()
+		DeployETHSmartContract()
 	case "setup":
-		SetUpLockProxyForETH()
+		SetUpEthContracts()
 	}
 }
 
-func SetupETHSmartContract() {
+func DeployETHSmartContract() {
 	invoker := eth.NewEInvoker()
 	var (
 		eccdAddr  common2.Address
@@ -150,23 +150,69 @@ func SetupETHSmartContract() {
 }
 
 func SetupERC20(ethInvoker *eth.EInvoker) {
+	if config.DefConfig.OntErc20 != "" {
+		bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthErc20,
+			config.DefConfig.OntErc20, config.DefConfig.OntChainID, 0)
+		if err != nil {
+			panic(fmt.Errorf("SetupERC20ToONT, failed to BindAssetHash: %v", err))
+		}
+		ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
+		hash := bindTx.Hash()
+		fmt.Printf("binding erc20 of ontology on ethereum: ( txhash: %s )\n", hash.String())
+	}
+
 	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthErc20,
-		config.DefConfig.OntErc20, config.ONT_CHAIN_ID, 0)
+		config.CM_ERC20, config.DefConfig.CMCrossChainId, 0)
 	if err != nil {
 		panic(fmt.Errorf("SetupERC20ToONT, failed to BindAssetHash: %v", err))
 	}
 	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
-	fmt.Printf("binding erc20 of ontology on ethereum: ( txhash: %s )\n", hash.String())
+	fmt.Printf("binding erc20 of cosmos on ethereum: ( txhash: %s )\n", hash.String())
+}
 
-	bindTx, err = ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthErc20,
-		config.CM_ERC20, int(config.DefConfig.CMCrossChainId), 0)
+func SetupWBTC(ethInvoker *eth.EInvoker) {
+	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthWBTC,
+		config.DefConfig.OntWBTC, config.DefConfig.OntChainID, 0)
 	if err != nil {
-		panic(fmt.Errorf("SetupERC20ToONT, failed to BindAssetHash: %v", err))
+		panic(fmt.Errorf("SetupWBTC, failed to BindAssetHash: %v", err))
 	}
 	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
-	hash = bindTx.Hash()
-	fmt.Printf("binding erc20 of cosmos on ethereum: ( txhash: %s )\n", hash.String())
+	hash := bindTx.Hash()
+	fmt.Printf("binding WBTC of ontology on ethereum: ( txhash: %s )\n", hash.String())
+}
+
+func SetupDAI(ethInvoker *eth.EInvoker) {
+	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthDai,
+		config.DefConfig.OntDai, config.DefConfig.OntChainID, 0)
+	if err != nil {
+		panic(fmt.Errorf("SetupDAI, failed to BindAssetHash: %v", err))
+	}
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
+	hash := bindTx.Hash()
+	fmt.Printf("binding DAI of ontology on ethereum: ( txhash: %s )\n", hash.String())
+}
+
+func SetupUSDT(ethInvoker *eth.EInvoker) {
+	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthUSDT,
+		config.DefConfig.OntUSDT, config.DefConfig.OntChainID, 0)
+	if err != nil {
+		panic(fmt.Errorf("SetupUSDT, failed to BindAssetHash: %v", err))
+	}
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
+	hash := bindTx.Hash()
+	fmt.Printf("binding USDT of ontology on ethereum: ( txhash: %s )\n", hash.String())
+}
+
+func SetupUSDC(ethInvoker *eth.EInvoker) {
+	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, config.DefConfig.EthUSDC,
+		config.DefConfig.OntUSDC, config.DefConfig.OntChainID, 0)
+	if err != nil {
+		panic(fmt.Errorf("SetupUSDC, failed to BindAssetHash: %v", err))
+	}
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
+	hash := bindTx.Hash()
+	fmt.Printf("binding USDC of ontology on ethereum: ( txhash: %s )\n", hash.String())
 }
 
 func SetupOntAsset(invoker *eth.EInvoker) {
@@ -200,68 +246,83 @@ func SetupOntAsset(invoker *eth.EInvoker) {
 
 func SetupETH(ethInvoker *eth.EInvoker) {
 	ethNativeAddr := "0x0000000000000000000000000000000000000000"
-	if config.DefConfig.OntEth == "" {
-		panic(fmt.Errorf("ethx on ontology is blank"))
+	if config.DefConfig.OntEth != "" {
+		tx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, ethNativeAddr, config.DefConfig.OntEth, config.DefConfig.OntChainID, 0)
+		if err != nil {
+			panic(fmt.Errorf("SetupETH2ONT, failed to bind asset hash: %v", err))
+		}
+		hash := tx.Hash()
+		fmt.Printf("binding ethx of ontology on ethereum: ( txhash: %s )\n", hash.String())
 	}
-	tx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, ethNativeAddr, config.DefConfig.OntEth, config.ONT_CHAIN_ID, 0)
+
+	tx, err := ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, ethNativeAddr, config.CM_ETHX, config.DefConfig.CMCrossChainId, 0)
 	if err != nil {
 		panic(fmt.Errorf("SetupETH2ONT, failed to bind asset hash: %v", err))
 	}
 	hash := tx.Hash()
-	fmt.Printf("binding ethx of ontology on ethereum: ( txhash: %s )\n", hash.String())
-
-	tx, err = ethInvoker.BindAssetHash(config.DefConfig.EthLockProxy, ethNativeAddr, config.CM_ETHX, int(config.DefConfig.CMCrossChainId), 0)
-	if err != nil {
-		panic(fmt.Errorf("SetupETH2ONT, failed to bind asset hash: %v", err))
-	}
-	hash = tx.Hash()
 	fmt.Printf("binding ethx of cosmos on ethereum: ( txhash: %s )\n", hash.String())
 }
 
 func SetOtherLockProxy(invoker *eth.EInvoker) {
-	auth, contract, err := invoker.MakeLockProxy(config.DefConfig.EthLockProxy)
+	_, contract, err := invoker.MakeLockProxy(config.DefConfig.EthLockProxy)
 	if err != nil {
 		panic(fmt.Errorf("failed to MakeLockProxy: %v", err))
 	}
-	if config.DefConfig.OntLockProxy == "" {
-		panic(fmt.Errorf("OntLockProxy is blank"))
+	if config.DefConfig.OntLockProxy != "" {
+		auth, err := invoker.MakeSmartContractAuth()
+		if err != nil {
+			panic(fmt.Errorf("failed to get auth: %v", err))
+		}
+		other, err := common.AddressFromHexString(config.DefConfig.OntLockProxy)
+		if err != nil {
+			panic(fmt.Errorf("failed to AddressFromHexString: %v", err))
+		}
+		tx, err := contract.BindProxyHash(auth, config.DefConfig.OntChainID, other[:])
+		if err != nil {
+			panic(fmt.Errorf("failed to bind proxy: %"))
+		}
+		hash := tx.Hash()
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
+		fmt.Printf("binding ont proxy: ( txhash: %s )\n", hash.String())
 	}
-	other, err := common.AddressFromHexString(config.DefConfig.OntLockProxy)
-	if err != nil {
-		panic(fmt.Errorf("failed to AddressFromHexString: %v", err))
-	}
-	tx, err := contract.BindProxyHash(auth, config.ONT_CHAIN_ID, other[:])
-	if err != nil {
-		panic(fmt.Errorf("failed to bind proxy: %"))
-	}
-	hash := tx.Hash()
-	invoker.ETHUtil.WaitTransactionConfirm(hash)
-	fmt.Printf("binding ont proxy: ( txhash: %s )\n", hash.String())
 
-	auth, err = invoker.MakeSmartContractAuth()
-	if err != nil {
-		panic(fmt.Errorf("failed to get auth: %v", err))
+	if config.DefConfig.CMLockProxy != "" {
+		auth, err := invoker.MakeSmartContractAuth()
+		if err != nil {
+			panic(fmt.Errorf("failed to get auth: %v", err))
+		}
+		raw, err := hex.DecodeString(config.DefConfig.CMLockProxy)
+		if err != nil {
+			panic(fmt.Errorf("failed to decode: %v", err))
+		}
+		tx, err := contract.BindProxyHash(auth, config.DefConfig.CMCrossChainId, raw)
+		if err != nil {
+			panic(fmt.Errorf("failed to bind COSMOS proxy: %v", err))
+		}
+		hash := tx.Hash()
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
+		fmt.Printf("binding cosmos proxy: ( txhash: %s )\n", hash.String())
 	}
-	if config.DefConfig.CMLockProxy == "" {
-		panic(fmt.Errorf("COSMOS lockproxy is blank"))
-	}
-	raw, err := hex.DecodeString(config.DefConfig.CMLockProxy)
-	if err != nil {
-		panic(fmt.Errorf("failed to decode: %v", err))
-	}
-	tx, err = contract.BindProxyHash(auth, config.DefConfig.CMCrossChainId, raw)
-	if err != nil {
-		panic(fmt.Errorf("failed to bind COSMOS proxy: %v", err))
-	}
-	hash = tx.Hash()
-	invoker.ETHUtil.WaitTransactionConfirm(hash)
-	fmt.Printf("binding cosmos proxy: ( txhash: %s )\n", hash.String())
 }
 
-func SetUpLockProxyForETH() {
+func SetUpEthContracts() {
 	invoker := eth.NewEInvoker()
 	SetupETH(invoker)
-	SetupERC20(invoker)
-	SetupOntAsset(invoker)
+	if config.DefConfig.EthErc20 != "" {
+		SetupERC20(invoker)
+	}
+	if config.DefConfig.OntLockProxy != "" {
+		SetupOntAsset(invoker)
+	}
+	if config.DefConfig.EthWBTC != "" {
+		SetupWBTC(invoker)
+	}
+	if config.DefConfig.EthDai != "" {
+		SetupDAI(invoker)
+	}
+	if config.DefConfig.EthUSDT != "" {
+		SetupUSDT(invoker)
+	}
+	//SetupUSDC(invoker)
 	SetOtherLockProxy(invoker)
 }

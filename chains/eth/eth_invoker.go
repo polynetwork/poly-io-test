@@ -27,15 +27,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	ontcommon "github.com/ontio/ontology/common"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
-	btcx_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/btcx"
-	eccd_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/eccd"
-	eccm_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/eccm"
-	eccmp_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/eccmp"
-	erc20_api "github.com/polynetwork/poly-io-test/chains/eth/abi/erc20"
-	lockproxy_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/lockproxy"
-	oep4_api "github.com/polynetwork/poly-io-test/chains/eth/abi/oep4"
-	ongx_api "github.com/polynetwork/poly-io-test/chains/eth/abi/ongx"
-	ontx_api "github.com/polynetwork/poly-io-test/chains/eth/abi/ontx"
+	"github.com/polynetwork/eth-contracts/go_abi/btcx_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/eccd_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/eccmp_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/erc20_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/lock_proxy_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/oep4_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/ongx_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/ontx_abi"
 	"github.com/polynetwork/poly-io-test/config"
 	"log"
 	"math/big"
@@ -51,7 +51,7 @@ type EInvoker struct {
 }
 
 var (
-	DefaultGasLimit = 8000000
+	DefaultGasLimit = 5000000
 )
 
 func NewEInvoker() *EInvoker {
@@ -83,7 +83,7 @@ func (ethInvoker *EInvoker) MakeSmartContractAuth() (*bind.TransactOpts, error) 
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(int64(0))       // in wei
 	auth.GasLimit = uint64(DefaultGasLimit) // in units
-	auth.GasPrice = gasPrice.Mul(gasPrice, big.NewInt(10))
+	auth.GasPrice = gasPrice.Mul(gasPrice, big.NewInt(1))
 	return auth, nil
 }
 
@@ -108,7 +108,7 @@ func (ethInvoker *EInvoker) DeployECCMContract(eccdAddress string) (ethComm.Addr
 	}
 	address := ethComm.HexToAddress(eccdAddress)
 	contractAddress, tx, contract, err := eccm_abi.DeployEthCrossChainManager(auth,
-		ethInvoker.ETHUtil.GetEthClient(), address)
+		ethInvoker.ETHUtil.GetEthClient(), address, config.DefConfig.EthChainID)
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}
@@ -128,9 +128,9 @@ func (ethInvoker *EInvoker) DeployECCMPContract(eccmAddress string) (ethComm.Add
 	return contractAddress, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployERC20() (ethComm.Address, *erc20_api.ERC20Template, error) {
+func (ethInvoker *EInvoker) DeployERC20() (ethComm.Address, *erc20_abi.ERC20Template, error) {
 	auth, _ := ethInvoker.MakeSmartContractAuth()
-	contractAddress, tx, contract, err := erc20_api.DeployERC20Template(auth,
+	contractAddress, tx, contract, err := erc20_abi.DeployERC20Template(auth,
 		ethInvoker.ETHUtil.GetEthClient())
 	if err != nil {
 		log.Fatal(err)
@@ -139,10 +139,10 @@ func (ethInvoker *EInvoker) DeployERC20() (ethComm.Address, *erc20_api.ERC20Temp
 	return contractAddress, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployOEP4(lockProxy string) (ethComm.Address, *oep4_api.OEP4Template, error) {
+func (ethInvoker *EInvoker) DeployOEP4(lockProxy string) (ethComm.Address, *oep4_abi.OEP4Template, error) {
 	auth, _ := ethInvoker.MakeSmartContractAuth()
 	lockProxyAddr := ethComm.HexToAddress(lockProxy)
-	contractAddress, tx, contract, err := oep4_api.DeployOEP4Template(auth,
+	contractAddress, tx, contract, err := oep4_abi.DeployOEP4Template(auth,
 		ethInvoker.ETHUtil.GetEthClient(), lockProxyAddr)
 	if err != nil {
 		log.Fatal(err)
@@ -158,11 +158,21 @@ func (ethInvoker *EInvoker) DeployOEP4(lockProxy string) (ethComm.Address, *oep4
 	return contractAddress, contract, nil
 }
 
+//
+//func (ethInvoker *EInvoker) DeployUSDT(lockProxy string) (ethComm.Address, *oep4_abi.OEP4Template, error) {
+//	auth, _ := ethInvoker.MakeSmartContractAuth()
+//	lockProxyAddr := ethComm.HexToAddress(lockProxy)
+//	usdt_abi.DeployTetherToken(auth, ethInvoker.ETHUtil.GetEthClient(), big.NewInt(8000000000), "USDT", "USDT", big.NewInt(6))
+//}
+
 func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetHash string,
-	toChainId int, initAmt int64) (*types.Transaction, error) {
+	toChainId uint64, initAmt int64) (*types.Transaction, error) {
 	auth, contract, err := ethInvoker.MakeLockProxy(lockProxyAddr)
+	if err != nil {
+		return nil, err
+	}
 	var toAddr []byte
-	if toChainId == config.ONT_CHAIN_ID {
+	if uint64(toChainId) == config.DefConfig.OntChainID {
 		addr, err := ontcommon.AddressFromHexString(toAssetHash)
 		if err != nil {
 			return nil, err
@@ -188,7 +198,7 @@ func (ethInvoker *EInvoker) BindOntAsset(lockProxy, ontOnEth, ongOnEth, oep4OnEt
 	txs := make([]*types.Transaction, 0)
 
 	tx1, err := contract.BindAssetHash(auth, ethComm.HexToAddress(ontOnEth),
-		config.ONT_CHAIN_ID, utils2.OntContractAddress[:])
+		config.DefConfig.OntChainID, utils2.OntContractAddress[:])
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +216,7 @@ func (ethInvoker *EInvoker) BindOntAsset(lockProxy, ontOnEth, ongOnEth, oep4OnEt
 
 	auth, _ = ethInvoker.MakeSmartContractAuth()
 	tx2, err := contract.BindAssetHash(auth, ethComm.HexToAddress(ongOnEth),
-		config.ONT_CHAIN_ID, utils2.OngContractAddress[:])
+		config.DefConfig.OntChainID, utils2.OngContractAddress[:])
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +237,7 @@ func (ethInvoker *EInvoker) BindOntAsset(lockProxy, ontOnEth, ongOnEth, oep4OnEt
 		return nil, err
 	}
 	auth, _ = ethInvoker.MakeSmartContractAuth()
-	tx3, err := contract.BindAssetHash(auth, ethComm.HexToAddress(oep4OnEth), config.ONT_CHAIN_ID, oep4[:])
+	tx3, err := contract.BindAssetHash(auth, ethComm.HexToAddress(oep4OnEth), config.DefConfig.OntChainID, oep4[:])
 	if err != nil {
 		return nil, err
 	}
@@ -245,19 +255,19 @@ func (ethInvoker *EInvoker) BindOntAsset(lockProxy, ontOnEth, ongOnEth, oep4OnEt
 	return txs, nil
 }
 
-func (ethInvoker *EInvoker) MakeLockProxy(lockProxyAddr string) (*bind.TransactOpts, *lockproxy_abi.LockProxy, error) {
+func (ethInvoker *EInvoker) MakeLockProxy(lockProxyAddr string) (*bind.TransactOpts, *lock_proxy_abi.LockProxy, error) {
 	auth, _ := ethInvoker.MakeSmartContractAuth()
-	contract, err := lockproxy_abi.NewLockProxy(ethComm.HexToAddress(lockProxyAddr),
+	contract, err := lock_proxy_abi.NewLockProxy(ethComm.HexToAddress(lockProxyAddr),
 		ethInvoker.ETHUtil.GetEthClient())
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, err
 	}
-	return auth, contract, err
+	return auth, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployLockProxyContract(eccmp ethComm.Address) (ethComm.Address, *lockproxy_abi.LockProxy, error) {
+func (ethInvoker *EInvoker) DeployLockProxyContract(eccmp ethComm.Address) (ethComm.Address, *lock_proxy_abi.LockProxy, error) {
 	auth, _ := ethInvoker.MakeSmartContractAuth()
-	contractAddress, tx, contract, err := lockproxy_abi.DeployLockProxy(auth,
+	contractAddress, tx, contract, err := lock_proxy_abi.DeployLockProxy(auth,
 		ethInvoker.ETHUtil.GetEthClient())
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployLockProxyContract: %v", err)
@@ -291,9 +301,9 @@ func (ethInvoker *EInvoker) DeployBTCXContract(redeemscript string) (ethComm.Add
 	return contractAddress, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployONTXContract(lockProxyAddr string) (ethComm.Address, *ontx_api.ONTX, error) {
+func (ethInvoker *EInvoker) DeployONTXContract(lockProxyAddr string) (ethComm.Address, *ontx_abi.ONTX, error) {
 	auth, _ := ethInvoker.MakeSmartContractAuth()
-	contractAddress, tx, contract, err := ontx_api.DeployONTX(auth,
+	contractAddress, tx, contract, err := ontx_abi.DeployONTX(auth,
 		ethInvoker.ETHUtil.GetEthClient(), ethComm.HexToAddress(lockProxyAddr))
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployONTXContract, failed to deploy: %v", err)
@@ -304,9 +314,9 @@ func (ethInvoker *EInvoker) DeployONTXContract(lockProxyAddr string) (ethComm.Ad
 	return contractAddress, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployONGXContract(lockProxyAddr string) (ethComm.Address, *ongx_api.ONGX, error) {
+func (ethInvoker *EInvoker) DeployONGXContract(lockProxyAddr string) (ethComm.Address, *ongx_abi.ONGX, error) {
 	auth, _ := ethInvoker.MakeSmartContractAuth()
-	contractAddress, tx, contract, err := ongx_api.DeployONGX(auth,
+	contractAddress, tx, contract, err := ongx_abi.DeployONGX(auth,
 		ethInvoker.ETHUtil.GetEthClient(), ethComm.HexToAddress(lockProxyAddr))
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployONGXContract, failed to deploy: %v", err)
@@ -319,7 +329,7 @@ func (ethInvoker *EInvoker) DeployONGXContract(lockProxyAddr string) (ethComm.Ad
 
 func (ethInvoker *EInvoker) SetManagerProxyForLockProxy(lockProxyAddrHex, eccmpAddressHex string) (*types.Transaction, error) {
 	lockProxyAddr := ethComm.HexToAddress(lockProxyAddrHex)
-	lockProxyContract, err := lockproxy_abi.NewLockProxy(lockProxyAddr, ethInvoker.ETHUtil.GetEthClient())
+	lockProxyContract, err := lock_proxy_abi.NewLockProxy(lockProxyAddr, ethInvoker.ETHUtil.GetEthClient())
 	if err != nil {
 		return nil, fmt.Errorf("SetManagerProxyForLockProxy: %v", err)
 	}
@@ -372,7 +382,7 @@ func (ethInvoker *EInvoker) GetAccInfo() (string, error) {
 	}
 	ethInfo := fmt.Sprintf("eth: %d", val.Uint64())
 
-	ontx, err := ontx_api.NewONTX(ethComm.HexToAddress(ethInvoker.TConfiguration.EthOntx), ethInvoker.ETHUtil.ethclient)
+	ontx, err := ontx_abi.NewONTX(ethComm.HexToAddress(ethInvoker.TConfiguration.EthOntx), ethInvoker.ETHUtil.ethclient)
 	if err != nil {
 		return "", err
 	}
@@ -382,7 +392,7 @@ func (ethInvoker *EInvoker) GetAccInfo() (string, error) {
 	}
 	ontInfo := fmt.Sprintf("ontx: %d", val.Uint64())
 
-	ongx, err := ongx_api.NewONGX(ethComm.HexToAddress(ethInvoker.TConfiguration.EthOngx), ethInvoker.ETHUtil.ethclient)
+	ongx, err := ongx_abi.NewONGX(ethComm.HexToAddress(ethInvoker.TConfiguration.EthOngx), ethInvoker.ETHUtil.ethclient)
 	if err != nil {
 		return "", err
 	}
@@ -392,7 +402,7 @@ func (ethInvoker *EInvoker) GetAccInfo() (string, error) {
 	}
 	ongInfo := fmt.Sprintf("ongx: %d", val.Uint64())
 
-	oep4x, err := oep4_api.NewOEP4Template(ethComm.HexToAddress(ethInvoker.TConfiguration.EthOep4), ethInvoker.ETHUtil.ethclient)
+	oep4x, err := oep4_abi.NewOEP4Template(ethComm.HexToAddress(ethInvoker.TConfiguration.EthOep4), ethInvoker.ETHUtil.ethclient)
 	if err != nil {
 		return "", err
 	}
@@ -402,7 +412,7 @@ func (ethInvoker *EInvoker) GetAccInfo() (string, error) {
 	}
 	oep4Info := fmt.Sprintf("oep4x: %d", val.Uint64())
 
-	erc20, err := erc20_api.NewERC20(ethComm.HexToAddress(ethInvoker.TConfiguration.EthErc20), ethInvoker.ETHUtil.ethclient)
+	erc20, err := erc20_abi.NewERC20(ethComm.HexToAddress(ethInvoker.TConfiguration.EthErc20), ethInvoker.ETHUtil.ethclient)
 	if err != nil {
 		return "", err
 	}

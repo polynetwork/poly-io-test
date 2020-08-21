@@ -23,6 +23,7 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly/common"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -212,7 +213,6 @@ func parseRelayChainBlock(ctx *TestFrameworkContext, height uint32) error {
 		return err
 	}
 
-	//log.Infof("parseRelayChainBlock, relay chain block height: %d, events num: %d", height, len(events))
 	for _, event := range events {
 		for _, notify := range event.Notify {
 			states, ok := notify.States.([]interface{})
@@ -230,6 +230,15 @@ func parseRelayChainBlock(ctx *TestFrameworkContext, height uint32) error {
 					txid := mtx.TxHash()
 					caseStatus := ctx.Status.GetCaseStatus(idx)
 					caseStatus.AddTx(txid.String(), &TxInfo{"RCToBtc", time.Now()})
+					caseStatus.Del(txHash)
+				}
+			} else if ok && name == "makeProof" && uint64(states[2].(float64)) == config.DefConfig.NeoChainID {
+				txHash, _ := states[3].(string)
+				if ok, idx := ctx.Status.IsTxPending(txHash); ok {
+					pHash, _ := common.Uint256FromHexString(event.TxHash)
+					log.Infof("receive cross chain tx on relay chain, tx hash: %s, raw tx hash: %s", event.TxHash, txHash)
+					caseStatus := ctx.Status.GetCaseStatus(idx)
+					caseStatus.AddTx(hex.EncodeToString(pHash[:]), &TxInfo{"PolyToNeo", time.Now()})
 					caseStatus.Del(txHash)
 				}
 			}
@@ -286,6 +295,62 @@ func MonitorCosmos(ctx *TestFrameworkContext) {
 				}
 				cs.BatchDel(keys)
 			}
+		}
+	}
+}
+
+func MonitorNeo(ctx *TestFrameworkContext) {
+	res := ctx.NeoInvoker.Cli.GetBlockCount()
+	if res.HasError() {
+		log.Errorf("failed to get curr height: %s", res.Error.Message)
+		os.Exit(1)
+	}
+	left := uint32(res.Result - 1)
+
+	updateTicker := time.NewTicker(time.Second * 1)
+	for {
+		select {
+		case <-updateTicker.C:
+			res := ctx.NeoInvoker.Cli.GetBlockCount()
+			if res.HasError() {
+				continue
+			}
+			right := uint32(res.Result) - 3
+			if left >= right {
+				continue
+			}
+			for i := uint32(left); i < right; i++ {
+				res := ctx.NeoInvoker.Cli.GetBlockByIndex(i)
+				for _, tx := range res.Result.Tx {
+					if tx.Type != "InvocationTransaction" {
+						continue
+					}
+					appLogResp := ctx.NeoInvoker.Cli.GetApplicationLog(tx.Txid)
+					if appLogResp.ErrorResponse.Error.Message != "" {
+						continue
+					}
+					appLog := appLogResp.Result
+					for _, exeitem := range appLog.Executions {
+						for _, notify := range exeitem.Notifications {
+							if notify.Contract != config.DefConfig.NeoCCMC {
+								continue
+							}
+							if len(notify.State.Value) == 0 {
+								continue
+							}
+							contractMethod, _ := hex.DecodeString(notify.State.Value[0].Value)
+							if string(contractMethod) != "CrossChainUnlockEvent" {
+								continue
+							}
+							if ok, idx := ctx.Status.IsTxPending(notify.State.Value[3].Value); ok {
+								ctx.Status.DelWithIndex(notify.State.Value[3].Value, idx)
+								log.Infof("neo unlock, txhash: %s, fromTxHash: %s", tx.Txid, notify.State.Value[3].Value)
+							}
+						}
+					}
+				}
+			}
+			left = right
 		}
 	}
 }

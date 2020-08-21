@@ -24,37 +24,46 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math/big"
+	"os"
+	"strings"
+
 	"github.com/btcsuite/btcd/wire"
 	types3 "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	common3 "github.com/ethereum/go-ethereum/common"
+	"github.com/joeqian10/neo-gogogo/block"
+	"github.com/joeqian10/neo-gogogo/helper/io"
+	"github.com/joeqian10/neo-gogogo/rpc"
 	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology-go-sdk"
+	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/types"
 	"github.com/ontio/ontology/smartcontract/service/native/cross_chain/header_sync"
 	"github.com/ontio/ontology/smartcontract/service/native/governance"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
-	"github.com/polynetwork/poly-go-sdk"
+
+	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
+
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/eth/abi/eccm"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testcase"
 	"github.com/polynetwork/poly/common"
-	"github.com/polynetwork/poly/consensus/vbft/config"
+	vconfig "github.com/polynetwork/poly/consensus/vbft/config"
 	"github.com/polynetwork/poly/native/service/governance/node_manager"
 	"github.com/polynetwork/poly/native/service/governance/relayer_manager"
 	"github.com/polynetwork/poly/native/service/governance/side_chain_manager"
+	"github.com/polynetwork/poly/native/service/header_sync/bsc"
 	"github.com/polynetwork/poly/native/service/header_sync/cosmos"
 	"github.com/polynetwork/poly/native/service/utils"
 	"github.com/tendermint/tendermint/rpc/client/http"
 	types2 "github.com/tendermint/tendermint/types"
-	"math/big"
-	"os"
-	"strings"
 )
 
 var (
@@ -71,6 +80,9 @@ var (
 	stateFile                                                             string
 	id                                                                    uint64
 	blockMsgDelay, hashMsgDelay, peerHandshakeTimeout, maxBlockChangeView uint64
+	rootca                                                                string
+	chainId                                                               uint64
+	fabricRelayerTy                                                       uint64
 )
 
 func init() {
@@ -90,6 +102,9 @@ func init() {
 	flag.Uint64Var(&hashMsgDelay, "hash_msg_delay", 5000, "")
 	flag.Uint64Var(&peerHandshakeTimeout, "peer_handshake_timeout", 10, "")
 	flag.Uint64Var(&maxBlockChangeView, "max_blk_change_view", 10000, "")
+	flag.StringVar(&rootca, "rootca", "", "file path for root CA")
+	flag.Uint64Var(&chainId, "chainid", 0, "default 0 means all chains")
+	flag.Uint64Var(&fabricRelayerTy, "fab_relayer_type", 1, "the relayer of fabric type: how many orgs need to sign CA for relayer")
 
 	flag.Parse()
 }
@@ -123,17 +138,50 @@ func main() {
 				panic(fmt.Errorf("failed to decode no%d wallet %s with pwd %s", i, wArr[i], pArr[i]))
 			}
 		}
-		if RegisterBtcChain(poly, acc) {
-			ApproveRegisterSideChain(config.BTC_CHAIN_ID, poly, accArr)
-		}
-		if RegisterOntChain(poly, acc) {
-			ApproveRegisterSideChain(config.ONT_CHAIN_ID, poly, accArr)
-		}
-		if RegisterEthChain(poly, acc) {
-			ApproveRegisterSideChain(config.ETH_CHAIN_ID, poly, accArr)
-		}
-		if RegisterCosmos(poly, acc) {
-			ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
+		switch chainId {
+		case config.DefConfig.BtcChainID:
+			if RegisterBtcChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
+			}
+		case config.DefConfig.EthChainID:
+			if RegisterEthChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.EthChainID, poly, accArr)
+			}
+		case config.DefConfig.OntChainID:
+			if RegisterOntChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OntChainID, poly, accArr)
+			}
+		case config.DefConfig.NeoChainID:
+			if RegisterNeoChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
+			}
+		case config.DefConfig.CMCrossChainId:
+			if RegisterCosmos(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
+			}
+		case config.DefConfig.BSCChainID:
+			if RegisterBSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BSCChainID, poly, accArr)
+			}
+		case 0:
+			if RegisterBtcChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
+			}
+			if RegisterOntChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OntChainID, poly, accArr)
+			}
+			if RegisterEthChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.EthChainID, poly, accArr)
+			}
+			if RegisterCosmos(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
+			}
+			if RegisterNeoChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
+			}
+			if RegisterBSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BSCChainID, poly, accArr)
+			}
 		}
 
 	case "sync_genesis_header":
@@ -147,21 +195,45 @@ func main() {
 				panic(fmt.Errorf("failed to decode no%d wallet %s with pwd %s", i, wArr[i], pArr[i]))
 			}
 		}
-		SyncBtcGenesisHeader(poly, acc)
-		SyncEthGenesisHeader(poly, accArr)
-		SyncOntGenesisHeader(poly, accArr)
-		SyncCosmosGenesisHeader(poly, accArr)
+
+		switch chainId {
+		case config.DefConfig.BtcChainID:
+			SyncBtcGenesisHeader(poly, acc)
+		case config.DefConfig.EthChainID:
+			SyncEthGenesisHeader(poly, accArr)
+		case config.DefConfig.OntChainID:
+			SyncOntGenesisHeader(poly, accArr)
+		case config.DefConfig.NeoChainID:
+			SyncNeoGenesisHeader(poly, accArr)
+		case config.DefConfig.CMCrossChainId:
+			SyncCosmosGenesisHeader(poly, accArr)
+		case config.DefConfig.BSCChainID:
+			SyncBSCGenesisHeader(poly, accArr)
+		case 0:
+			SyncBtcGenesisHeader(poly, acc)
+			SyncEthGenesisHeader(poly, accArr)
+			SyncOntGenesisHeader(poly, accArr)
+			SyncCosmosGenesisHeader(poly, accArr)
+			SyncNeoGenesisHeader(poly, accArr)
+			SyncBSCGenesisHeader(poly, accArr)
+		}
 
 	case "update_btc":
 		accArr := getPolyAccounts(poly)
 		if UpdateBtc(poly, acc) {
-			ApproveUpdateChain(config.BTC_CHAIN_ID, poly, accArr)
+			ApproveUpdateChain(config.DefConfig.BtcChainID, poly, accArr)
 		}
 
 	case "update_eth":
 		accArr := getPolyAccounts(poly)
 		if UpdateEth(poly, acc) {
-			ApproveUpdateChain(config.ETH_CHAIN_ID, poly, accArr)
+			ApproveUpdateChain(config.DefConfig.EthChainID, poly, accArr)
+		}
+
+	case "update_neo":
+		accArr := getPolyAccounts(poly)
+		if UpdateNeo(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.NeoChainID, poly, accArr)
 		}
 
 	case "init_ont_acc":
@@ -212,9 +284,14 @@ func main() {
 	case "add_relayer":
 		accArr := getPolyAccounts(poly)
 		signer := acc
-		acc, err = btc.GetAccountByPassword(poly, newWallet, []byte(newPwd))
-		if err != nil {
-			panic(fmt.Errorf("failed to get new account: %v", err))
+		acc = &poly_go_sdk.Account{}
+		if newPwd != "" {
+			acc, err = btc.GetAccountByPassword(poly, newWallet, []byte(newPwd))
+			if err != nil {
+				panic(fmt.Errorf("failed to get new account: %v", err))
+			}
+		} else {
+			acc.Address, _ = common.AddressFromBase58(newWallet)
 		}
 		ApproveRelayer(poly, RegisterRelayer(poly, acc, signer), accArr)
 	case "reg_poly_node":
@@ -371,7 +448,7 @@ func SyncBtcGenesisHeader(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) {
 
 	hb := make([]byte, 4)
 	binary.BigEndian.PutUint32(hb, uint32(start))
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.BTC_CHAIN_ID, append(buf.Bytes(), hb...),
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.BtcChainID, append(buf.Bytes(), hb...),
 		[]*poly_go_sdk.Account{acc})
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
@@ -401,7 +478,7 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	if err != nil {
 		panic(err)
 	}
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.ETH_CHAIN_ID, raw, accArr)
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.EthChainID, raw, accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("eth already synced")
@@ -414,7 +491,7 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 			hdr.Hash().String(), txhash.ToHexString())
 	}
 
-	eccmContract, err := eccm.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.Eccm), tool.GetEthClient())
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.Eccm), tool.GetEthClient())
 	if err != nil {
 		panic(err)
 	}
@@ -426,6 +503,127 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
 	if err != nil {
 		panic(fmt.Errorf("SyncEthGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("SyncEthGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	rawHdr := gB.Header.ToArray()
+
+	contractabi, err := abi.JSON(strings.NewReader(eccm_abi.EthCrossChainManagerABI))
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, abi.JSON error: %v", err)
+		return
+	}
+	txData, err := contractabi.Pack("initGenesisBlock", rawHdr, publickeys)
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, contractabi.Pack error: %v", err)
+		return
+	}
+
+	eccm := common3.HexToAddress(config.DefConfig.Eccm)
+	callMsg := ethereum.CallMsg{
+		From: signer.Address, To: &eccm, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(0), Data: txData,
+	}
+	gasLimit, err := tool.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, estimate gas limit error: %s", err.Error())
+		return
+	}
+
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), gasLimit)
+	tx, err := eccmContract.InitGenesisBlock(auth, rawHdr, publickeys)
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, failed to sync poly header to ETH: %v", err)
+		return
+	}
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to Ethereum: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.BSCURL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+	pEpochHeight := epochHeight - 200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+	phdr, err := tool.GetBlockHeader(pEpochHeight)
+	if err != nil {
+		panic(err)
+	}
+	pvalidators, err := bsc.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+	if len(phdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
+	}
+
+	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
+		bsc.HeightAndValidators{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+	}}
+	raw, err := json.Marshal(genesisHeader)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.BSCChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("bsc already synced")
+		} else {
+			panic(fmt.Errorf("SyncBSCGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync bsc genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.Eccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.BSCPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncBSCGenesisHeader, get suggest gas price failed error: %s", err.Error()))
 	}
 	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
 	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
@@ -454,7 +652,7 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
 	tool.WaitTransactionConfirm(tx.Hash())
-	log.Infof("successful to sync poly genesis header to Ethereum: ( txhash: %s )", tx.Hash().String())
+	log.Infof("successful to sync poly genesis header to BSC: ( txhash: %s )", tx.Hash().String())
 }
 
 func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -465,7 +663,7 @@ func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	if err != nil {
 		panic(err)
 	}
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.ONT_CHAIN_ID, genesisBlock.Header.ToArray(), accArr)
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.OntChainID, genesisBlock.Header.ToArray(), accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("ont already synced")
@@ -502,6 +700,37 @@ func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	}
 	ont.WaitOntTx(txHash, ontCli)
 	log.Infof("successful to sync poly genesis header to Ontology: ( txhash: %s )", txHash.ToHexString())
+}
+
+func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
+	cli := rpc.NewClient(config.DefConfig.NeoUrl)
+	resp := cli.GetBlockHeaderByIndex(config.DefConfig.NeoEpoch)
+	if resp.HasError() {
+		return fmt.Errorf("failed to get header: %v", resp.Error.Message)
+	}
+	header, err := block.NewBlockHeaderFromRPC(&resp.Result)
+	if err != nil {
+		return err
+	}
+	buf := io.NewBufBinaryWriter()
+	header.Serialize(buf.BinaryWriter)
+	if buf.Err != nil {
+		return buf.Err
+	}
+
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.NeoChainID, buf.Bytes(), accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("neo already synced")
+		} else {
+			panic(fmt.Errorf("SyncNeoGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+	return nil
 }
 
 func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -630,15 +859,15 @@ func RegisterBtcChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 
 	rawTy := make([]byte, 8)
 	binary.LittleEndian.PutUint64(rawTy, uint64(tyNet))
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.BTC_CHAIN_ID, config.BTC_CHAIN_ID, "btc",
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.BtcChainID, config.DefConfig.BtcChainID, "btc",
 		blkToWait, rawTy, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("btc chain %d already registered", config.BTC_CHAIN_ID)
+			log.Infof("btc chain %d already registered", config.DefConfig.BtcChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("btc chain %d already requested", config.BTC_CHAIN_ID)
+			log.Infof("btc chain %d already requested", config.DefConfig.BtcChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterBtcChain failed: %v", err))
@@ -659,21 +888,46 @@ func RegisterEthChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	if err != nil {
 		panic(fmt.Errorf("RegisterEthChain, failed to decode eccd '%s' : %v", config.DefConfig.Eccd, err))
 	}
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.ETH_CHAIN_ID, config.ETH_CHAIN_ID, "eth",
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.EthChainID, 2, "eth",
 		blkToWait, eccd, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("eth chain %d already registered", config.ETH_CHAIN_ID)
+			log.Infof("eth chain %d already registered", config.DefConfig.EthChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("eth chain %d already requested", config.ETH_CHAIN_ID)
+			log.Infof("eth chain %d already requested", config.DefConfig.EthChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterEthChain failed: %v", err))
 	}
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register eth chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.NeoCCMC, "0x"))
+	if err != nil {
+		panic(fmt.Errorf("RegisterNeoChain, failed to decode eccd '%s' : %v", config.DefConfig.Eccd, err))
+	}
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.NeoChainID, 4, "NEO",
+		blkToWait, eccd[:], acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("neo chain %d already registered", config.DefConfig.NeoChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("neo chain %d already requested", config.DefConfig.NeoChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterNeoChain failed: %v", err))
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register neo chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
@@ -698,18 +952,46 @@ func RegisterCosmos(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	log.Infof("successful to register cosmos chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
+
 }
 
-func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.ONT_CHAIN_ID, 3, "ont",
-		1, []byte{}, acc)
+func RegisterBSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(15)
+	extra := bsc.ExtraInfo{
+		// test id 97
+		ChainID: big.NewInt(97),
+	}
+	extraBytes, _ := json.Marshal(extra)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.BSCChainID, 5, "bsc",
+		blkToWait, []byte{}, extraBytes, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("ont chain %d already registered", config.ONT_CHAIN_ID)
+			log.Infof("bsc chain %d already registered", config.DefConfig.BSCChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("ont chain %d already requested", config.ONT_CHAIN_ID)
+			log.Infof("bsc chain %d already requested", config.DefConfig.BSCChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterBSC failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register bsc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.OntChainID, 3, "ont",
+		1, []byte{}, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("ont chain %d already registered", config.DefConfig.OntChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("ont chain %d already requested", config.DefConfig.OntChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterOntChain failed: %v", err))
@@ -717,27 +999,6 @@ func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register ont chain: ( txhash: %s )", txhash.ToHexString())
-
-	return true
-}
-
-func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, 4, 4, "neo",
-		1, []byte{}, acc)
-	if err != nil {
-		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("neo chain %d already registered", 4)
-			return false
-		}
-		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("neo chain %d already requested", 4)
-			return true
-		}
-		panic(fmt.Errorf("RegisterNeoChain failed: %v", err))
-	}
-
-	testcase.WaitPolyTx(txhash, poly)
-	log.Infof("successful to register neo chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
@@ -761,7 +1022,7 @@ func UpdateBtc(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	rawTy := make([]byte, 8)
 	binary.LittleEndian.PutUint64(rawTy, uint64(tyNet))
 
-	if err := updateSideChain(poly, acc, config.BTC_CHAIN_ID, blkToWait, "btc", rawTy); err != nil {
+	if err := updateSideChain(poly, acc, config.DefConfig.BtcChainID, 1, blkToWait, "btc", rawTy); err != nil {
 		log.Errorf("failed to update btc: %v", err)
 		return false
 	}
@@ -779,16 +1040,30 @@ func UpdateEth(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("failed to decode eccd: %v", err)
 		return false
 	}
-	if err = updateSideChain(poly, acc, config.ETH_CHAIN_ID, blkToWait, "eth", eccd); err != nil {
+	if err = updateSideChain(poly, acc, config.DefConfig.EthChainID, 2, blkToWait, "eth", eccd); err != nil {
 		log.Errorf("failed to update eth: %v", err)
 		return false
 	}
 	return true
 }
 
-func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, blkToWait uint64, name string,
+func UpdateNeo(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.NeoCCMC, "0x"))
+	if err != nil {
+		log.Errorf("failed to decode eccd: %v", err)
+		return false
+	}
+	if err = updateSideChain(poly, acc, config.DefConfig.NeoChainID, 4, blkToWait, "NEO", eccd[:]); err != nil {
+		log.Errorf("failed to update neo: %v", err)
+		return false
+	}
+	return true
+}
+
+func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
 	ccmc []byte) error {
-	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, chainId, name, blkToWait, ccmc, acc)
+	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, router, name, blkToWait, ccmc, acc)
 	if err != nil {
 		return err
 	}

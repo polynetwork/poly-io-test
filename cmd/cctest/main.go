@@ -23,6 +23,7 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
@@ -60,20 +61,24 @@ func main() {
 	}
 
 	ethInvoker := eth.NewEInvoker()
-	btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
-		config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
-		config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
-	if err != nil {
-		log.Errorf("failed to new a btc invoker, do not test cases about BTC: %v", err)
-	}
+	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
+	//	config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
+	//	config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
+	//if err != nil {
+	//	log.Errorf("failed to new a btc invoker, do not test cases about BTC: %v", err)
+	//}
 	ontInvoker, err := ont.NewOntInvoker(config.DefConfig.OntJsonRpcAddress, config.DefConfig.OntContractsAvmPath,
 		config.DefConfig.OntWallet, config.DefConfig.OntWalletPassword)
 	if err != nil {
-		log.Errorf("failed to new a ont invoker, do not test cases about ONT: %v", err)
+		log.Warnf("failed to new a ont invoker, do not test cases about ONT: %v", err)
 	}
 	cmInvoker, err := cosmos.NewCosmosInvoker()
 	if err != nil {
-		log.Errorf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+		log.Warnf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+	}
+	neoInvoker, err := neo.NewNeoInvoker()
+	if err != nil {
+		log.Warnf("failed to new a neo invoker, do not test cases about NEO: %v", err)
 	}
 
 	testCases := make([]string, 0)
@@ -82,9 +87,10 @@ func main() {
 	}
 	testframework.TFramework.SetRcSdk(rcSdk)
 	testframework.TFramework.SetEthInvoker(ethInvoker)
-	testframework.TFramework.SetBtcInvoker(btcInvoker)
+	//testframework.TFramework.SetBtcInvoker(btcInvoker)
 	testframework.TFramework.SetOntInvoker(ontInvoker)
 	testframework.TFramework.SetCosmosInvoker(cmInvoker)
+	testframework.TFramework.SetNeoInvoker(neoInvoker)
 
 	//Start run test case
 	testframework.TFramework.Run(testCases, LoopNumber)
