@@ -24,9 +24,9 @@ import (
 	"github.com/ontio/ontology-go-sdk/utils"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
+	"github.com/polynetwork/eth-contracts/go_abi/btcx_abi"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	btcx_abi "github.com/polynetwork/poly-io-test/chains/eth/abi/btcx"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/testcase"
@@ -177,25 +177,25 @@ func SetupNewVendor(invoker *btc.BtcInvoker) {
 
 	// btcx set each other
 	auth, _ := ei.MakeSmartContractAuth()
-	tx, err := ebtcxContract.BindAssetHash(auth, config.ONT_CHAIN_ID, obtcx[:])
+	tx, err := ebtcxContract.BindAssetHash(auth, config.DefConfig.OntChainID, obtcx[:])
 	if err != nil {
 		panic(fmt.Errorf("bind obtc on ebtc failed: %v", err))
 	}
 	ei.ETHUtil.WaitTransactionConfirm(tx.Hash())
-	_, err = oi.BindBtcx(obtcx.ToHexString(), ebtcx.Bytes(), 2,
+	_, err = oi.BindBtcx(obtcx.ToHexString(), ebtcx.Bytes(), config.DefConfig.EthChainID,
 		config.DefConfig.GasPrice, config.DefConfig.GasLimit)
 	if err != nil {
 		panic(fmt.Errorf("bind ebtc on obtc failed: %v", err))
 	}
 
-	txhash, err := invoker.BindBtcxWithVendor(ebtcx.String(), 2, vendor)
+	txhash, err := invoker.BindBtcxWithVendor(ebtcx.String(), config.DefConfig.EthChainID, vendor)
 	if err != nil {
 		panic(fmt.Errorf("failed to bind ebtcx: %v", err))
 	}
 	testcase.WaitPolyTx(txhash, invoker.RChain)
 	info += fmt.Sprintf("bind btcx on ether txhash: %s\n", txhash.ToHexString())
 
-	txhash, err = invoker.BindBtcxWithVendor(obtcx.ToHexString(), config.ONT_CHAIN_ID, vendor)
+	txhash, err = invoker.BindBtcxWithVendor(obtcx.ToHexString(), config.DefConfig.OntChainID, vendor)
 	if err != nil {
 		panic(fmt.Errorf("failed to bind obtcx: %v", err))
 	}
@@ -315,7 +315,7 @@ func SetupExistingVendor(invoker *btc.BtcInvoker) {
 
 	// btcx set each other
 	auth, _ := ei.MakeSmartContractAuth()
-	tx, err := ebtcxContract.BindAssetHash(auth, config.ONT_CHAIN_ID, obtcx[:])
+	tx, err := ebtcxContract.BindAssetHash(auth, config.DefConfig.OntChainID, obtcx[:])
 	if err != nil {
 		panic(fmt.Errorf("bind obtc on ebtc failed: %v", err))
 	}
@@ -328,25 +328,25 @@ func SetupExistingVendor(invoker *btc.BtcInvoker) {
 	}
 	ei.ETHUtil.WaitTransactionConfirm(tx.Hash())
 
-	_, err = oi.BindBtcx(obtcx.ToHexString(), ebtcx.Bytes(), 2,
+	_, err = oi.BindBtcx(obtcx.ToHexString(), ebtcx.Bytes(), config.DefConfig.EthChainID,
 		config.DefConfig.GasPrice, config.DefConfig.GasLimit)
 	if err != nil {
 		panic(fmt.Errorf("bind ebtc on obtc failed: %v", err))
 	}
-	_, err = oi.BindBtcx(obtcx.ToHexString(), []byte(config.CM_BTCX), int(config.DefConfig.CMCrossChainId),
+	_, err = oi.BindBtcx(obtcx.ToHexString(), []byte(config.CM_BTCX), config.DefConfig.CMCrossChainId,
 		config.DefConfig.GasPrice, config.DefConfig.GasLimit)
 	if err != nil {
 		panic(fmt.Errorf("bind cosmos-btc on obtc failed: %v", err))
 	}
 
-	txhash, err := invoker.BindBtcxWithVendor(ebtcx.String(), 2, vendor)
+	txhash, err := invoker.BindBtcxWithVendor(ebtcx.String(), config.DefConfig.EthChainID, vendor)
 	if err != nil {
 		panic(fmt.Errorf("failed to bind ebtcx: %v", err))
 	}
 	testcase.WaitPolyTx(txhash, invoker.RChain)
 	info += fmt.Sprintf("bind btcx on ether txhash: %s\n", txhash.ToHexString())
 
-	txhash, err = invoker.BindBtcxWithVendor(obtcx.ToHexString(), config.ONT_CHAIN_ID, vendor)
+	txhash, err = invoker.BindBtcxWithVendor(obtcx.ToHexString(), config.DefConfig.OntChainID, vendor)
 	if err != nil {
 		panic(fmt.Errorf("failed to bind obtcx: %v", err))
 	}

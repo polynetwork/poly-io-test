@@ -651,7 +651,7 @@ func BuildData(toChainId uint64, ccFee int64, toAddr string) ([]byte, error) {
 	ccflag := byte(0xcc)
 	var args *btc.Args
 	switch toChainId {
-	case 2:
+	case config.DefConfig.EthChainID:
 		toAddr = strings.Replace(toAddr, "0x", "", 1)
 		toAddrBytes, err := hex.DecodeString(toAddr)
 		if err != nil {
@@ -662,7 +662,7 @@ func BuildData(toChainId uint64, ccFee int64, toAddr string) ([]byte, error) {
 			ToChainID: toChainId,
 			Fee:       ccFee,
 		}
-	case config.ONT_CHAIN_ID:
+	case config.DefConfig.OntChainID:
 		addrBytes, _ := common.AddressFromBase58(toAddr)
 		args = &btc.Args{
 			Address:   addrBytes[:],

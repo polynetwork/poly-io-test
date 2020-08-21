@@ -2,7 +2,7 @@
 .idea/*
 .wallets/*
 report/*
-config-dev.json
-config-test.json
-config-main.json
+config-*.json
 test.go
+fisco_sdk.toml
+*.yaml

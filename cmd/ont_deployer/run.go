@@ -59,6 +59,10 @@ func main() {
 		config.DefConfig.OntErc20 = addrs[3].ToHexString()
 		config.DefConfig.OntOep4 = addrs[4].ToHexString()
 		config.DefConfig.OntEth = addrs[5].ToHexString()
+		config.DefConfig.OntWBTC = addrs[6].ToHexString()
+		config.DefConfig.OntDai = addrs[7].ToHexString()
+		config.DefConfig.OntUSDC = addrs[8].ToHexString()
+		config.DefConfig.OntUSDT = addrs[9].ToHexString()
 
 		err = config.DefConfig.Save(ontConfFile)
 		if err != nil {
@@ -96,7 +100,7 @@ func main() {
 		}
 
 		otherAddr := common2.HexToAddress(config.DefConfig.EthLockProxy)
-		txhash, err := invoker.SetOtherLockProxy(otherAddr.Bytes(), config.ETH_CHAIN_ID)
+		txhash, err := invoker.SetOtherLockProxy(otherAddr.Bytes(), config.DefConfig.EthChainID)
 		if err != nil {
 			panic(fmt.Errorf("failed to bind eth lock proxy on ont_proxy: %v", err))
 		}
@@ -106,7 +110,7 @@ func main() {
 		if err != nil {
 			panic(fmt.Errorf("failed to decode proxy: %v", err))
 		}
-		txhash, err = invoker.SetOtherLockProxy(cmProxy, int(config.DefConfig.CMCrossChainId))
+		txhash, err = invoker.SetOtherLockProxy(cmProxy, config.DefConfig.CMCrossChainId)
 		if err != nil {
 			panic(fmt.Errorf("failed to bind cosmos lock proxy: %v", err))
 		}

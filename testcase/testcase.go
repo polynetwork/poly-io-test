@@ -17,6 +17,7 @@
 package testcase
 
 import (
+	"encoding/hex"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testframework"
@@ -30,7 +31,7 @@ func SendOntToEthChain(ctx *testframework.TestFrameworkContext, status *testfram
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -40,17 +41,17 @@ func SendEOntToOntChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
 func SendEthToOntChain(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
-	if err := SendEthCrossOnt(ctx, status, GetRandAmount(config.DefConfig.EthValLimit, 1)); err != nil {
+	if err := SendEthCrossOnt(ctx, status, 1); err != nil {
 		log.Errorf("SendEthToOntChain error: %v", err)
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -60,7 +61,7 @@ func SendEthoToEthChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -71,7 +72,7 @@ func SendBtcoToBtcChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -82,7 +83,7 @@ func SendBtcToOntChain(ctx *testframework.TestFrameworkContext, status *testfram
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -92,7 +93,7 @@ func SendBtcToEthChain(ctx *testframework.TestFrameworkContext, status *testfram
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -103,7 +104,7 @@ func SendBtceToBtcChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -114,7 +115,7 @@ func SendBtcoToEthChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -125,7 +126,7 @@ func SendBtceToOntChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -190,7 +191,7 @@ func BtcCircle(ctx *testframework.TestFrameworkContext, status *testframework.Ca
 		log.Infof("btc1&2 is back now")
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -240,7 +241,7 @@ func OntCircle(ctx *testframework.TestFrameworkContext, status *testframework.Ca
 		log.Infof("OntCircle, ont all received ( batch: %d )", i)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -287,7 +288,7 @@ func OngCircle(ctx *testframework.TestFrameworkContext, status *testframework.Ca
 		WaitUntilClean(status)
 		log.Infof("OngCircle, ong all received ( batch: %d )", i)
 	}
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -338,7 +339,7 @@ func EthCircle(ctx *testframework.TestFrameworkContext, status *testframework.Ca
 		log.Infof("EthCircle, eth all received ( batch: %d )", i)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -386,7 +387,7 @@ func Erc20Circle(ctx *testframework.TestFrameworkContext, status *testframework.
 		log.Infof("Erc20Circle, erc20 all received ( batch: %d )", i)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -414,7 +415,7 @@ func Oep4Circle(ctx *testframework.TestFrameworkContext, status *testframework.C
 		WaitUntilClean(status)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -425,7 +426,7 @@ func SendOngToEthChain(ctx *testframework.TestFrameworkContext, status *testfram
 	}
 
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -435,7 +436,7 @@ func SendOngeToOntChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -445,7 +446,7 @@ func SendERC20ToOntChain(ctx *testframework.TestFrameworkContext, status *testfr
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -455,7 +456,7 @@ func SendOERC20ToEthChain(ctx *testframework.TestFrameworkContext, status *testf
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -465,7 +466,7 @@ func SendOEP4ToEthChain(ctx *testframework.TestFrameworkContext, status *testfra
 		return false
 	}
 	WaitUntilClean(status)
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -474,7 +475,7 @@ func SendOEP4eToOntChain(ctx *testframework.TestFrameworkContext, status *testfr
 		log.Errorf("SendOEP4eToOntChain, SendEOEP4CrossOnt error: %s", err)
 		return false
 	}
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -495,7 +496,7 @@ func SendBtcToEthInBatch(ctx *testframework.TestFrameworkContext, status *testfr
 	WaitUntilClean(status)
 	log.Infof("btc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -516,7 +517,7 @@ func SendBtcToOntInBatch(ctx *testframework.TestFrameworkContext, status *testfr
 	WaitUntilClean(status)
 	log.Infof("btc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -537,7 +538,7 @@ func SendBtceToBtcInBatch(ctx *testframework.TestFrameworkContext, status *testf
 	WaitUntilClean(status)
 	log.Infof("ebtc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -558,7 +559,7 @@ func SendBtcoToBtcInBatch(ctx *testframework.TestFrameworkContext, status *testf
 	WaitUntilClean(status)
 	log.Infof("obtc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -579,7 +580,7 @@ func SendBtcoToBtceInBatch(ctx *testframework.TestFrameworkContext, status *test
 	WaitUntilClean(status)
 	log.Infof("obtc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -600,7 +601,7 @@ func SendBtceToBtcoInBatch(ctx *testframework.TestFrameworkContext, status *test
 	WaitUntilClean(status)
 	log.Infof("ebtc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -621,7 +622,7 @@ func SendOntToEthInBatch(ctx *testframework.TestFrameworkContext, status *testfr
 	WaitUntilClean(status)
 	log.Infof("ont is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -642,7 +643,7 @@ func SendOnteToOntInBatch(ctx *testframework.TestFrameworkContext, status *testf
 	WaitUntilClean(status)
 	log.Infof("ont is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -663,7 +664,7 @@ func SendEthToOntInBatch(ctx *testframework.TestFrameworkContext, status *testfr
 	WaitUntilClean(status)
 	log.Infof("eth is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -684,7 +685,7 @@ func SendEthoToEthInBatch(ctx *testframework.TestFrameworkContext, status *testf
 	WaitUntilClean(status)
 	log.Infof("eth is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -723,7 +724,7 @@ func BtcOntCircle(ctx *testframework.TestFrameworkContext, status *testframework
 	WaitUntilClean(status)
 	log.Infof("obtc is all received")
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -751,7 +752,7 @@ func SendBtcToCosmosAndBack(ctx *testframework.TestFrameworkContext, status *tes
 		log.Info("btc from cosmos to bitcoin all received: ( batch: %d )", n)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -778,7 +779,7 @@ func SendEthToCosmosAndBack(ctx *testframework.TestFrameworkContext, status *tes
 		log.Info("eth from cosmos to ethereum all received ( batch: %d )", n)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -805,7 +806,7 @@ func SendErc20ToCosmosAndBack(ctx *testframework.TestFrameworkContext, status *t
 		WaitUntilClean(status)
 		log.Info("erc20 from cosmos to ethereum all received ( batch: %d )", n)
 	}
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -832,7 +833,7 @@ func SendOntToCosmosAndBack(ctx *testframework.TestFrameworkContext, status *tes
 		WaitUntilClean(status)
 		log.Infof("ont from cosmos to ontology all received ( batch: %d )", n)
 	}
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -859,7 +860,7 @@ func SendOngToCosmosAndBack(ctx *testframework.TestFrameworkContext, status *tes
 		WaitUntilClean(status)
 		log.Infof("ong from cosmos to ontology all received ( batch: %d )", n)
 	}
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -886,7 +887,7 @@ func SendOep4ToCosmosAndBack(ctx *testframework.TestFrameworkContext, status *te
 		WaitUntilClean(status)
 		log.Infof("oep4 from cosmos to ontology all received ( batch: %d )", n)
 	}
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -900,7 +901,7 @@ func SendZeroOntToEth(ctx *testframework.TestFrameworkContext, status *testframe
 		return false
 	}
 	log.Info("all success!")
-	status.SetItSuccess()
+	status.SetItSuccess(1)
 	return true
 }
 
@@ -928,6 +929,456 @@ func OntCircleWithoutCosmos(ctx *testframework.TestFrameworkContext, status *tes
 		log.Infof("OntCircle, ont all received ( batch: %d )", i)
 	}
 
-	status.SetItSuccess()
+	status.SetItSuccess(1)
+	return true
+}
+
+func USDTCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.USDTValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendUSDTCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("USDTCircle, SendUSDTCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("USDTCircle, send %d usdt to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendOUSDTCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("USDTCircle, SendOUSDTCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("USDTCircle, send %d usdt from ontology to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("USDTCircle, usdt all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func WBTCCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.WBTCValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendWBTCCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("WBTCCircle, SendWBTCCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("WBTCCircle, send %d wbtc to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendOWBTCCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("WBTCCircle, SendOWBTCCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("WBTCCircle, send %d wbtc from ontology to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("WBTCCircle, wbtc all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func DAICircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.USDTValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendDAICrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("DAICircle, SendDAICrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("DAICircle, send %d dai to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendODAICrossEth(ctx, status, amt); err != nil {
+				log.Errorf("DAICircle, SendODAICrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("DAICircle, send %d dai from ontology to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("DAICircle, dai all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func NeoToEthCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.NeoValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendNeoCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("NeoToEthCircle, SendNeoCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("NeoToEthCircle, send %d NEO to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendENeoCrossNeo(ctx, status, amt); err != nil {
+				log.Errorf("NeoToEthCircle, SendENeoCrossNeo error: %v", err)
+				return false
+			}
+		}
+		log.Infof("NeoToEthCircle, send %d NEO from ethereum to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("NeoToEthCircle, neo all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func NeoToOntCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.NeoValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendNeoCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("NeoToOntCircle, SendNeoCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("NeoToOntCircle, send %d NEO to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendONeoCrossNeo(ctx, status, amt); err != nil {
+				log.Errorf("NeoToOntCircle, SendONeoCrossNeo error: %v", err)
+				return false
+			}
+		}
+		log.Infof("NeoToOntCircle, send %d NEO from ontology to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("NeoToOntCircle, neo all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func OntToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.OntValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendOntCrossNeo(ctx, status, amt); err != nil {
+				log.Errorf("OntToNeoAndBack, SendOntCrossNeo error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntToNeoAndBack, send %d ont to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendNOntCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("OntToNeoAndBack, SendNOntCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntToNeoAndBack, send %d ont from NEO to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("OntToNeoAndBack, ont all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func OntdToEthAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.OntdValLimit, config.DefConfig.OntdValFloor)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendOntdCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("OntdToEthAndBack, SendOntdCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntdToEthAndBack, send %d ontd to Ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEOntdCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("OntdToEthAndBack, SendEOntdCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntdToEthAndBack, send %d ontd from Ethereum to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("OntdToEthAndBack, ontd all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func OntdToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.OntdValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendOntdCrossNeo(ctx, status, amt); err != nil {
+				log.Errorf("OntdToNeoAndBack, SendOntdCrossNeo error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntdToNeoAndBack, send %d ontd to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendNOntdCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("OntToNeoAndBack, SendNOntCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("OntdToNeoAndBack, send %d ontd from NEO to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("OntdToNeoAndBack, ontd all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func EOntdToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.OntdValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEOntdCrossNeo(ctx, status, amt); err != nil {
+				log.Errorf("EOntdToNeoAndBack, SendEOntdCrossNeo error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EOntdToNeoAndBack, send %d ontd to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendNOntdCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("EOntdToNeoAndBack, SendNOntdCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EOntdToNeoAndBack, send %d ontd from NEO to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("EOntdToNeoAndBack, ontd all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func EthToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.OntValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEthCrossNeo(ctx, status, amt); err != nil {
+				log.Errorf("EthToNeoAndBack, SendEthCrossNeo error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthToNeoAndBack, send %d eth to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendNEthCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("EthToNeoAndBack, SendNEthCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthToNeoAndBack, send %d eth from NEO to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("EthToNeoAndBack, eth all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func USDCCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.USDCValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendUSDCCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("USDCCircle, SendUSDCCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("USDCCircle, send %d USDC to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendOUSDCCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("USDCCircle, SendOUSDCCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("USDCCircle, send %d USDC from ontology to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("USDCCircle, USDC all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func RenBTCCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.RenBTCValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendRenBTCCrossOnt(ctx, status, amt); err != nil {
+				log.Errorf("RenBTCCircle, SendRenBTCCrossOnt error: %v", err)
+				return false
+			}
+		}
+		log.Infof("RenBTCCircle, send %d renBTC to ontology, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendORenBTCCrossEth(ctx, status, amt); err != nil {
+				log.Errorf("RenBTCCircle, SendORenBTCCrossEth error: %v", err)
+				return false
+			}
+		}
+		log.Infof("RenBTCCircle, send %d renBTC from ontology to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("RenBTCCircle, renBTC all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func EthFiscoCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEthCrossFisco(ctx, status, amt); err != nil {
+				log.Errorf("EthFiscoCircle, SendEthCrossFisco error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthFiscoCircle, send %d eth to Fisco, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFiscoEthCrossEthereum(ctx, status, amt); err != nil {
+				log.Errorf("EthFiscoCircle, SendFiscoEthCrossEthereum error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthFiscoCircle, send %d eth from Fisco to ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("EthFiscoCircle, eth all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func EthFabricCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	toAcc, err := hex.DecodeString(config.DefConfig.FabricAccAddr)
+	if err != nil {
+		panic(err)
+	}
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEthCrossFabric(ctx, status, amt, toAcc); err != nil {
+				log.Errorf("EthFabricCircle, SendEthCrossFabric error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthFabricCircle, send %d eth to Fabric, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFabricEthCrossEthereum(ctx, status, amt); err != nil {
+				log.Errorf("EthFabricCircle, SendFabricEthCrossEthereum error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthFabricCircle, send %d eth from fabric to Ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("EthFabricCircle, eth all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func EthCircleBetweenEthereumFabricFisco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	toAcc, err := hex.DecodeString(config.DefConfig.FabricAccAddr)
+	if err != nil {
+		panic(err)
+	}
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEthCrossFabric(ctx, status, amt, toAcc); err != nil {
+				log.Errorf("EthCircleBetweenEthereumFabricFisco, SendEthCrossFabric error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthCircleBetweenEthereumFabricFisco, send %d eth to Fabric, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFabricEthCrossFisco(ctx, status, amt); err != nil {
+				log.Errorf("EthCircleBetweenEthereumFabricFisco, SendFabricEthCrossFisco error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthCircleBetweenEthereumFabricFisco, send %d eth from fabric to fisco, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFiscoEthCrossEthereum(ctx, status, amt); err != nil {
+				log.Errorf("EthCircleBetweenEthereumFabricFisco, SendFiscoEthCrossEthereum error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthCircleBetweenEthereumFabricFisco, send %d eth from fisco to Ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendEthCrossFisco(ctx, status, amt); err != nil {
+				log.Errorf("EthCircleBetweenEthereumFabricFisco, SendEthCrossFisco error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthCircleBetweenEthereumFabricFisco, send %d eth from Ethereum to Fisco, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFiscoEthCrossFabric(ctx, status, amt); err != nil {
+				log.Errorf("EthCircleBetweenEthereumFabricFisco, SendFiscoEthCrossFabric error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthCircleBetweenEthereumFabricFisco, send %d eth from Fisco to Fabric, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFabricEthCrossEthereum(ctx, status, amt); err != nil {
+				log.Errorf("EthCircleBetweenEthereumFabricFisco, SendFabricEthCrossEthereum error: %v", err)
+				return false
+			}
+		}
+		log.Infof("EthCircleBetweenEthereumFabricFisco, send %d eth from Fabric to Ethereum, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		log.Infof("EthCircleBetweenEthereumFabricFisco, eth all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
 	return true
 }

@@ -18,15 +18,28 @@ package testframework
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/FISCO-BCOS/go-sdk/core/types"
 	"github.com/btcsuite/btcd/wire"
+	common2 "github.com/ethereum/go-ethereum/common"
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
+	"github.com/polynetwork/poly-io-test/chains/fisco/go_abi/eccm_abi"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly-io-test/testframework/internal/github.com/hyperledger/fabric/protoutil"
+	"github.com/polynetwork/poly/common"
+	common3 "github.com/polynetwork/poly/native/service/cross_chain_manager/common"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -212,7 +225,6 @@ func parseRelayChainBlock(ctx *TestFrameworkContext, height uint32) error {
 		return err
 	}
 
-	//log.Infof("parseRelayChainBlock, relay chain block height: %d, events num: %d", height, len(events))
 	for _, event := range events {
 		for _, notify := range event.Notify {
 			states, ok := notify.States.([]interface{})
@@ -230,6 +242,15 @@ func parseRelayChainBlock(ctx *TestFrameworkContext, height uint32) error {
 					txid := mtx.TxHash()
 					caseStatus := ctx.Status.GetCaseStatus(idx)
 					caseStatus.AddTx(txid.String(), &TxInfo{"RCToBtc", time.Now()})
+					caseStatus.Del(txHash)
+				}
+			} else if ok && name == "makeProof" && uint64(states[2].(float64)) == config.DefConfig.NeoChainID {
+				txHash, _ := states[3].(string)
+				if ok, idx := ctx.Status.IsTxPending(txHash); ok {
+					pHash, _ := common.Uint256FromHexString(event.TxHash)
+					log.Infof("receive cross chain tx on relay chain, tx hash: %s, raw tx hash: %s", event.TxHash, txHash)
+					caseStatus := ctx.Status.GetCaseStatus(idx)
+					caseStatus.AddTx(hex.EncodeToString(pHash[:]), &TxInfo{"PolyToNeo", time.Now()})
 					caseStatus.Del(txHash)
 				}
 			}
@@ -286,6 +307,233 @@ func MonitorCosmos(ctx *TestFrameworkContext) {
 				}
 				cs.BatchDel(keys)
 			}
+		}
+	}
+}
+
+func MonitorNeo(ctx *TestFrameworkContext) {
+	res := ctx.NeoInvoker.Cli.GetBlockCount()
+	if res.HasError() {
+		log.Errorf("failed to get curr height: %s", res.Error.Message)
+		os.Exit(1)
+	}
+	left := uint32(res.Result - 1)
+
+	updateTicker := time.NewTicker(time.Second * 1)
+	for {
+		select {
+		case <-updateTicker.C:
+			res := ctx.NeoInvoker.Cli.GetBlockCount()
+			if res.HasError() {
+				continue
+			}
+			right := uint32(res.Result) - 3
+			if left >= right {
+				continue
+			}
+			for i := uint32(left); i < right; i++ {
+				res := ctx.NeoInvoker.Cli.GetBlockByIndex(i)
+				for _, tx := range res.Result.Tx {
+					if tx.Type != "InvocationTransaction" {
+						continue
+					}
+					appLogResp := ctx.NeoInvoker.Cli.GetApplicationLog(tx.Txid)
+					if appLogResp.ErrorResponse.Error.Message != "" {
+						continue
+					}
+					appLog := appLogResp.Result
+					for _, exeitem := range appLog.Executions {
+						for _, notify := range exeitem.Notifications {
+							if notify.Contract != config.DefConfig.NeoCCMC {
+								continue
+							}
+							if len(notify.State.Value) == 0 {
+								continue
+							}
+							contractMethod, _ := hex.DecodeString(notify.State.Value[0].Value)
+							if string(contractMethod) != "CrossChainUnlockEvent" {
+								continue
+							}
+							if ok, idx := ctx.Status.IsTxPending(notify.State.Value[3].Value); ok {
+								ctx.Status.DelWithIndex(notify.State.Value[3].Value, idx)
+								log.Infof("neo unlock, txhash: %s, fromTxHash: %s", tx.Txid, notify.State.Value[3].Value)
+							}
+						}
+					}
+				}
+			}
+			left = right
+		}
+	}
+}
+
+func MonitorFisco(ctx *TestFrameworkContext) {
+	left, err := ctx.FiscoInvoker.BlockNumber()
+	if err != nil {
+		panic(err)
+	}
+	left--
+
+	updateTicker := time.NewTicker(time.Second * 1)
+	for {
+		select {
+		case <-updateTicker.C:
+			right, err := ctx.FiscoInvoker.BlockNumber()
+			if err != nil {
+				log.Errorf("MonitorFisco failed to BlockNumber: %v", err)
+				continue
+			}
+			if right <= left {
+				continue
+			}
+			for left < right {
+				left++
+				err := CheckFiscoHeight(ctx, uint64(left))
+				if err != nil {
+					log.Errorf("MonitorFisco error: %v", err)
+				}
+			}
+		}
+	}
+}
+
+type BlockRes struct {
+	Transactions []string `json:"transactions"`
+}
+
+func CheckFiscoHeight(ctx *TestFrameworkContext, height uint64) error {
+	eccmAddress := common2.HexToAddress(config.DefConfig.FiscoCCMC)
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(eccmAddress, ctx.FiscoInvoker.FiscoSdk)
+	if err != nil {
+		return err
+	}
+	blk, err := ctx.FiscoInvoker.FiscoSdk.GetBlockByNumber(context.Background(), strconv.FormatUint(height, 10), false)
+	if err != nil {
+		return fmt.Errorf("CheckFiscoHeight - GetBlockByNumber error :%s", err.Error())
+	}
+	res := &BlockRes{}
+	err = json.Unmarshal(blk, res)
+	if err != nil {
+		return fmt.Errorf("CheckFiscoHeight - Unmarshal error :%s", err.Error())
+	}
+	for _, tx := range res.Transactions {
+		recp, err := ctx.FiscoInvoker.FiscoSdk.TransactionReceipt(context.Background(), common2.HexToHash(tx))
+		if err != nil {
+			log.Errorf("CheckFiscoHeight - tx %s TransactionReceipt error: %v", tx, err.Error())
+			continue
+		}
+		if recp.Status != "0x0" {
+			continue
+		}
+		for _, v := range recp.Logs {
+			if v.Address != strings.ToLower(config.DefConfig.FiscoCCMC) {
+				continue
+			}
+			topics := make([]common2.Hash, len(v.Topics))
+			for i, t := range v.Topics {
+				topics[i] = common2.HexToHash(t.(string))
+			}
+			rawData, _ := hex.DecodeString(strings.TrimPrefix(v.Data, "0x"))
+			evt, _ := eccmContract.ParseCrossChainEvent(types.Log{
+				Address: common2.HexToAddress(v.Address),
+				Topics:  topics,
+				Data:    rawData,
+			})
+			if evt != nil {
+				ok, idx := ctx.Status.IsTxPending(strings.TrimPrefix(tx, "0x"))
+				if !ok {
+					continue
+				}
+
+				var ethTxIdByte []byte
+				indexInt := big.NewInt(0)
+				indexInt.SetBytes(evt.TxId)
+				for i := len(indexInt.Bytes()); i < 32; i++ {
+					ethTxIdByte = append(ethTxIdByte, 0)
+				}
+				ethTxIdByte = append(ethTxIdByte, indexInt.Bytes()...)
+				ethTxIdStr := hex.EncodeToString(ethTxIdByte)
+				log.Infof("send cross chain tx on Fisco, tx hash: %s, tx id: %s", tx, ethTxIdStr)
+				caseStatus := ctx.Status.GetCaseStatus(idx)
+				txUnPrefix := strings.TrimPrefix(tx, "0x")
+				caseStatus.AddTx(ethTxIdStr, &TxInfo{txUnPrefix, time.Now()})
+				caseStatus.Del(txUnPrefix)
+				continue
+			}
+			evt1, _ := eccmContract.ParseVerifyHeaderAndExecuteTxEvent(types.Log{
+				Address: common2.HexToAddress(v.Address),
+				Topics:  topics,
+				Data:    rawData,
+			})
+			if evt1 != nil {
+				fromTx := hex.EncodeToString(evt1.FromChainTxHash)
+				if ok, idx := ctx.Status.IsTxPending(fromTx); ok {
+					ctx.Status.DelWithIndex(fromTx, idx)
+					log.Infof("fisco VerifyHeaderAndExecuteTxEvent, fisco txhash: %s, fromTxHash: %s", tx, fromTx)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func MonitorFabric(ctx *TestFrameworkContext) {
+	info, err := ctx.FabricInvoker.LedgerCLi.QueryInfo()
+	if err != nil {
+		panic(err)
+	}
+	curr := info.BCI.Height - 1
+	left := curr - 1
+
+	updateTicker := time.NewTicker(time.Second * 1)
+	for {
+		select {
+		case <-updateTicker.C:
+			info, err := ctx.FabricInvoker.LedgerCLi.QueryInfo()
+			if err != nil {
+				panic(err)
+			}
+			curr = info.BCI.Height - 1
+			if curr <= left {
+				continue
+			}
+
+			for h := left + 1; h <= curr; h++ {
+				blk, err := ctx.FabricInvoker.LedgerCLi.QueryBlock(h)
+				if err != nil {
+					log.Errorf("failed to get fabric block: %v", err)
+					h--
+					time.Sleep(time.Second)
+					continue
+				}
+				for _, v := range blk.Data.Data {
+					xx, _ := protoutil.GetEnvelopeFromBlock(v)
+					cas, _ := protoutil.GetActionsFromEnvelopeMsg(xx)
+
+					for _, v := range cas {
+						chaincodeEvent := &peer.ChaincodeEvent{}
+						_ = proto.Unmarshal(v.Events, chaincodeEvent)
+						if len(chaincodeEvent.TxId) == 0 {
+							continue
+						}
+						tx, _ := ctx.FabricInvoker.LedgerCLi.QueryTransaction(fab.TransactionID(chaincodeEvent.TxId))
+						if tx.ValidationCode == 0 && strings.Contains(chaincodeEvent.EventName, "from_poly") {
+							merkleValue := new(common3.ToMerkleValue)
+							_ = merkleValue.Deserialization(common.NewZeroCopySource(chaincodeEvent.Payload))
+
+							fromTx := hex.EncodeToString(merkleValue.MakeTxParam.TxHash)
+							if ok, idx := ctx.Status.IsTxPending(fromTx); ok {
+								ctx.Status.DelWithIndex(fromTx, idx)
+								log.Infof("MonitorFabric, height: %d, txid: %s, validate code: %d, from_tx: %s",
+									h, chaincodeEvent.TxId, tx.ValidationCode, fromTx)
+							}
+						}
+					}
+				}
+			}
+
+			left = curr
 		}
 	}
 }
