@@ -18,6 +18,7 @@ package ont
 
 import (
 	"fmt"
+	common2 "github.com/ethereum/go-ethereum/common"
 	goSdk "github.com/ontio/ontology-go-sdk"
 	"github.com/ontio/ontology-go-sdk/utils"
 	"github.com/ontio/ontology/common"
@@ -39,6 +40,10 @@ var (
 		"ERC20Template",
 		"OEP4Template",
 		"ethx",
+		"obtc",
+		"odai",
+		"ousdc",
+		"ousdt",
 	}
 )
 
@@ -119,34 +124,34 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 	// etho
 	ethoAddr, _ := common.AddressFromHexString(etho)
 	ethAddr, _ := common.HexToBytes("0000000000000000000000000000000000000000")
-	assetLimt := big.NewInt(1e18)
+	//assetLimt := big.NewInt(1e18)
 
-	res, err := invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(ethoAddr, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
-	if err != nil {
-		return nil, fmt.Errorf("failed to check the ethx balance of proxy: %v", err)
-	}
-	val, err := res.Result.ToInteger()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get value from result: %v", err)
-	}
+	//res, err := invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(ethoAddr, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to check the ethx balance of proxy: %v", err)
+	//}
+	//val, err := res.Result.ToInteger()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get value from result: %v", err)
+	//}
 	tx2 := common.UINT256_EMPTY
-	if val.Uint64() == 0 {
-		tx2, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
-			invoker.OntAcc,
-			invoker.OntAcc,
-			ethoAddr,
-			[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], assetLimt}})
-		if err != nil {
-			return nil, fmt.Errorf("etho delegateToProxy error: %v", err)
-		}
-		invoker.WaitTxConfirmation(tx2)
-	}
+	//if val.Uint64() == 0 {
+	//	tx2, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+	//		invoker.OntAcc,
+	//		invoker.OntAcc,
+	//		ethoAddr,
+	//		[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], assetLimt}})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("etho delegateToProxy error: %v", err)
+	//	}
+	//	invoker.WaitTxConfirmation(tx2)
+	//}
 
 	tx1, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
 		invoker.OntAcc,
 		invoker.OntAcc,
 		contractAddress,
-		[]interface{}{"bindAssetHash", []interface{}{ethoAddr[:], 2, ethAddr}})
+		[]interface{}{"bindAssetHash", []interface{}{ethoAddr[:], config.DefConfig.EthChainID, ethAddr}})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already") {
 			return nil, fmt.Errorf("etho bindAssetHash error: %v", err)
@@ -168,32 +173,32 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 	// erc20
 	erc20oAddr, _ := common.AddressFromHexString(erc20o)
 	erc20Addr, _ := common.HexToBytes(strings.Replace(erc20, "0x", "", 1))
-	res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(erc20oAddr, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
-	if err != nil {
-		return nil, fmt.Errorf("failed to check the erc20 balance of proxy: %v", err)
-	}
-	val, err = res.Result.ToInteger()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get value from result: %v", err)
-	}
+	//res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(erc20oAddr, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to check the erc20 balance of proxy: %v", err)
+	//}
+	//val, err = res.Result.ToInteger()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get value from result: %v", err)
+	//}
 	tx4 := common.UINT256_EMPTY
-	if val.Uint64() == 0 {
-		tx4, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
-			invoker.OntAcc,
-			invoker.OntAcc,
-			erc20oAddr,
-			[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], big.NewInt(1e13)}})
-		if err != nil {
-			return nil, fmt.Errorf("erc20 delegateToProxy error: %v", err)
-		}
-		invoker.WaitTxConfirmation(tx4)
-	}
+	//if val.Uint64() == 0 {
+	//	tx4, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+	//		invoker.OntAcc,
+	//		invoker.OntAcc,
+	//		erc20oAddr,
+	//		[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], big.NewInt(1e13)}})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("erc20 delegateToProxy error: %v", err)
+	//	}
+	//	invoker.WaitTxConfirmation(tx4)
+	//}
 
 	tx3, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
 		invoker.OntAcc,
 		invoker.OntAcc,
 		contractAddress,
-		[]interface{}{"bindAssetHash", []interface{}{erc20oAddr[:], 2, erc20Addr}})
+		[]interface{}{"bindAssetHash", []interface{}{erc20oAddr[:], config.DefConfig.EthChainID, erc20Addr}})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already") {
 			return nil, fmt.Errorf("erc20 bindAssetHash error: %v", err)
@@ -213,12 +218,160 @@ func (invoker *OntInvoker) SetupEthAsset(lockProxy, etho, erc20, erc20o string, 
 		log.Warnf("erc20 on cosmos is already binded: %v", err)
 	}
 
+	//WBTC
+	owbtc, _ := common.AddressFromHexString(config.DefConfig.OntWBTC)
+	wbtc := common2.HexToAddress(config.DefConfig.EthWBTC)
+	//res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(owbtc, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to check the wbtc balance of proxy: %v", err)
+	//}
+	//val, err = res.Result.ToInteger()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get value from result: %v", err)
+	//}
+	tx10 := common.UINT256_EMPTY
+	//if val.Uint64() == 0 {
+	//	tx10, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+	//		invoker.OntAcc,
+	//		invoker.OntAcc,
+	//		owbtc,
+	//		[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], big.NewInt(1e11)}})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("wbtc delegateToProxy error: %v", err)
+	//	}
+	//	invoker.WaitTxConfirmation(tx10)
+	//}
+	tx7, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+		invoker.OntAcc,
+		invoker.OntAcc,
+		contractAddress,
+		[]interface{}{"bindAssetHash", []interface{}{owbtc, config.DefConfig.EthChainID, wbtc[:]}})
+	if err != nil {
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("wbtc on eth bindAssetHash error: %v", err)
+		}
+		log.Warnf("wbtc on ethereum is already binded: %v", err)
+	}
+
+	//DAI
+	odai, _ := common.AddressFromHexString(config.DefConfig.OntDai)
+	dai := common2.HexToAddress(config.DefConfig.EthDai)
+	//res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(odai, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to check the dai balance of proxy: %v", err)
+	//}
+	//val, err = res.Result.ToInteger()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get value from result: %v", err)
+	//}
+	tx11 := common.UINT256_EMPTY
+	//if val.Uint64() == 0 {
+	//	tx11, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+	//		invoker.OntAcc,
+	//		invoker.OntAcc,
+	//		odai,
+	//		[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], big.NewInt(math.MaxInt64)}})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("dai delegateToProxy error: %v", err)
+	//	}
+	//	invoker.WaitTxConfirmation(tx11)
+	//}
+	tx8, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+		invoker.OntAcc,
+		invoker.OntAcc,
+		contractAddress,
+		[]interface{}{"bindAssetHash", []interface{}{odai, config.DefConfig.EthChainID, dai[:]}})
+	if err != nil {
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("dai on eth bindAssetHash error: %v", err)
+		}
+		log.Warnf("dai on ethereum is already binded: %v", err)
+	}
+
+	// USDT
+	ousdt, _ := common.AddressFromHexString(config.DefConfig.OntUSDT)
+	usdt := common2.HexToAddress(config.DefConfig.EthUSDT)
+	//res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(ousdt, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to check the ousdt balance of proxy: %v", err)
+	//}
+	//val, err = res.Result.ToInteger()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get value from result: %v", err)
+	//}
+	tx12 := common.UINT256_EMPTY
+	//if val.Uint64() == 0 {
+	//	tx12, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+	//		invoker.OntAcc,
+	//		invoker.OntAcc,
+	//		ousdt,
+	//		[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], big.NewInt(1e12)}})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("ousdt delegateToProxy error: %v", err)
+	//	}
+	//	invoker.WaitTxConfirmation(tx12)
+	//}
+	tx9, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+		invoker.OntAcc,
+		invoker.OntAcc,
+		contractAddress,
+		[]interface{}{"bindAssetHash", []interface{}{ousdt, config.DefConfig.EthChainID, usdt[:]}})
+	if err != nil {
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("usdt on eth bindAssetHash error: %v", err)
+		}
+		log.Warnf("usdt on ethereum is already binded: %v", err)
+	}
+
+	// USDC
+	ousdc, _ := common.AddressFromHexString(config.DefConfig.OntUSDC)
+	usdc := common2.HexToAddress(config.DefConfig.EthUSDC)
+	//res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(ousdc, []interface{}{"balanceOf", []interface{}{contractAddress[:]}})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to check the ousdt balance of proxy: %v", err)
+	//}
+	//val, err = res.Result.ToInteger()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get value from result: %v", err)
+	//}
+	tx13 := common.UINT256_EMPTY
+	//if val.Uint64() == 0 {
+	//	tx13, err = invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+	//		invoker.OntAcc,
+	//		invoker.OntAcc,
+	//		ousdc,
+	//		[]interface{}{"delegateToProxy", []interface{}{contractAddress[:], big.NewInt(1e12)}})
+	//	if err != nil {
+	//		return nil, fmt.Errorf("ousdt delegateToProxy error: %v", err)
+	//	}
+	//	invoker.WaitTxConfirmation(tx13)
+	//}
+	tx14, err := invoker.OntSdk.NeoVM.InvokeNeoVMContract(gasPrice, gasLimit,
+		invoker.OntAcc,
+		invoker.OntAcc,
+		contractAddress,
+		[]interface{}{"bindAssetHash", []interface{}{ousdc, config.DefConfig.EthChainID, usdc[:]}})
+	if err != nil {
+		if !strings.Contains(err.Error(), "already") {
+			return nil, fmt.Errorf("usdt on eth bindAssetHash error: %v", err)
+		}
+		log.Warnf("usdt on ethereum is already binded: %v", err)
+	}
+
 	txs = append(txs, tx1)
 	txs = append(txs, tx2)
 	txs = append(txs, tx3)
 	txs = append(txs, tx4)
 	txs = append(txs, tx5)
 	txs = append(txs, tx6)
+	txs = append(txs, tx7)
+	txs = append(txs, tx8)
+	txs = append(txs, tx9)
+	txs = append(txs, tx10)
+	txs = append(txs, tx11)
+	txs = append(txs, tx12)
+	txs = append(txs, tx13)
+	txs = append(txs, tx14)
 
 	return txs, nil
 }
@@ -250,7 +403,7 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		invoker.OntAcc,
 		invoker.OntAcc,
 		contractAddress,
-		[]interface{}{"bindAssetHash", []interface{}{utils2.OntContractAddress, 2, onteAddr}})
+		[]interface{}{"bindAssetHash", []interface{}{utils2.OntContractAddress, config.DefConfig.EthChainID, onteAddr}})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already") {
 			return nil, fmt.Errorf("bindAssetHash Ont error: %s", err)
@@ -278,7 +431,7 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		invoker.OntAcc,
 		invoker.OntAcc,
 		contractAddress,
-		[]interface{}{"bindAssetHash", []interface{}{utils2.OngContractAddress[:], 2, ongeAddr}})
+		[]interface{}{"bindAssetHash", []interface{}{utils2.OngContractAddress[:], config.DefConfig.EthChainID, ongeAddr}})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already") {
 			return nil, fmt.Errorf("bindAssetHash ong error: %s", err)
@@ -307,7 +460,7 @@ func (invoker *OntInvoker) SetupOntAsset(lockProxy, onte, onge, oep4, oep4e stri
 		invoker.OntAcc,
 		invoker.OntAcc,
 		contractAddress,
-		[]interface{}{"bindAssetHash", []interface{}{oep4Addr[:], 2, oep4eAddr}})
+		[]interface{}{"bindAssetHash", []interface{}{oep4Addr[:], config.DefConfig.EthChainID, oep4eAddr}})
 	if err != nil {
 		if !strings.Contains(err.Error(), "already") {
 			return nil, fmt.Errorf("bindAssetHash oep4 error: %s", err)
@@ -379,7 +532,7 @@ func (invoker *OntInvoker) SetupBtcx(btcx string, redeem, rk []byte, limit, gasP
 	return txs, nil
 }
 
-func (invoker *OntInvoker) BindBtcx(btcx string, otherBtcx []byte, chainId int, gasPrice, gasLimit uint64) (common.Uint256, error) {
+func (invoker *OntInvoker) BindBtcx(btcx string, otherBtcx []byte, chainId uint64, gasPrice, gasLimit uint64) (common.Uint256, error) {
 	btcxAddr, err := utils.AddressFromHexString(btcx)
 	if err != nil {
 		return common.UINT256_EMPTY, fmt.Errorf("parse contract addr failed, err: %s", err)
@@ -394,7 +547,7 @@ func (invoker *OntInvoker) BindBtcx(btcx string, otherBtcx []byte, chainId int, 
 	return tx, nil
 }
 
-func (invoker *OntInvoker) SetOtherLockProxy(other []byte, toChainId int) (common.Uint256, error) {
+func (invoker *OntInvoker) SetOtherLockProxy(other []byte, toChainId uint64) (common.Uint256, error) {
 	addr, err := utils.AddressFromHexString(config.DefConfig.OntLockProxy)
 	if err != nil {
 		return common.UINT256_EMPTY, err
@@ -480,18 +633,18 @@ func (invoker *OntInvoker) GetAccInfo() (string, error) {
 	}
 	oep4xInfo := fmt.Sprintf("oep4x: %d", bigVal.Uint64())
 
-	btco, err := utils.AddressFromHexString(config.DefConfig.BtcoContractAddress)
-	if err != nil {
-		return "", err
-	}
-	res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(btco, []interface{}{"balanceOf", []interface{}{invoker.OntAcc.Address[:]}})
-	if err != nil {
-		return "", err
-	}
-	bigVal, err = res.Result.ToInteger()
-	if err != nil {
-		return "", err
-	}
+	//btco, err := utils.AddressFromHexString(config.DefConfig.BtcoContractAddress)
+	//if err != nil {
+	//	return "", err
+	//}
+	//res, err = invoker.OntSdk.NeoVM.PreExecInvokeNeoVMContract(btco, []interface{}{"balanceOf", []interface{}{invoker.OntAcc.Address[:]}})
+	//if err != nil {
+	//	return "", err
+	//}
+	//bigVal, err = res.Result.ToInteger()
+	//if err != nil {
+	//	return "", err
+	//}
 	btcoInfo := fmt.Sprintf("btco: %d", bigVal.Uint64())
 
 	return fmt.Sprintf("ONTOLOGY: acc: %s, asset: [ %s, %s, %s, %s, %s, %s ]",

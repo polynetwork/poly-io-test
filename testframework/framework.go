@@ -21,6 +21,9 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/fabric"
+	"github.com/polynetwork/poly-io-test/chains/fisco"
+	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
@@ -57,6 +60,9 @@ type TestFramework struct {
 	btcInvoker    *btc.BtcInvoker
 	ontInvoker    *ont.OntInvoker
 	cosmosInvoker *cosmos.CosmosInvoker
+	neoInvoker    *neo.NeoInvoker
+	fiscoInvoker  *fisco.FiscoInvoker
+	fabricInvoker *fabric.FabricInvoker
 }
 
 //NewTestFramework return a TestFramework instance
@@ -113,7 +119,7 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	defer this.onTestFinish(testCaseList)
 
 	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.btcInvoker,
-		this.ontInvoker, this.cosmosInvoker)
+		this.ontInvoker, this.cosmosInvoker, this.neoInvoker, this.fiscoInvoker, this.fabricInvoker)
 	if this.ontInvoker != nil {
 		go MonitorOnt(ctx)
 	}
@@ -127,6 +133,16 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	if this.cosmosInvoker != nil {
 		go MonitorCosmos(ctx)
 	}
+	if this.neoInvoker != nil {
+		go MonitorNeo(ctx)
+	}
+	if this.fiscoInvoker != nil {
+		go MonitorFisco(ctx)
+	}
+	if this.fabricInvoker != nil {
+		go MonitorFabric(ctx)
+	}
+	//TODO: fabric
 	go ReportPending(ctx)
 
 	wg := &sync.WaitGroup{}
@@ -147,6 +163,7 @@ func (this *TestFramework) runTest(index int, ctx *TestFrameworkContext, testCas
 		this.onAfterTestCaseFinish(index, loopNum, testCase, ok)
 		this.testCaseRes[this.getTestCaseId(testCase)] = ok
 		if !ok {
+			status.SetItSuccess(-1)
 			log.Errorf("case %s failed (loop: %d)", this.getTestCaseName(testCase), i)
 			break
 		}
@@ -177,43 +194,55 @@ func (this *TestFramework) SetCosmosInvoker(cmInvoker *cosmos.CosmosInvoker) {
 	this.cosmosInvoker = cmInvoker
 }
 
+func (this *TestFramework) SetNeoInvoker(neoInvoker *neo.NeoInvoker) {
+	this.neoInvoker = neoInvoker
+}
+
+func (this *TestFramework) SetFiscoInvoker(fiscoInvoker *fisco.FiscoInvoker) {
+	this.fiscoInvoker = fiscoInvoker
+}
+
+func (this *TestFramework) SetFabricInvoker(fabricInvoker *fabric.FabricInvoker) {
+	this.fabricInvoker = fabricInvoker
+}
+
 //onTestStart invoke at the beginning of test
 func (this *TestFramework) onTestStart() {
-	version, _ := this.ontInvoker.OntSdk.GetVersion()
+	version, _ := this.rcSdk.GetVersion()
 	log.Info("===============================================================")
 	log.Infof("-------CrossChain Test Start Version: %s", version)
 	log.Info("===============================================================")
 	log.Info("")
 	this.startTime = time.Now()
 	str := ""
-	if this.btcInvoker != nil {
-		btcInfo, err := this.btcInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += btcInfo + "\n"
-	}
-	if this.ethInvoker != nil {
-		ethInfo, err := this.ethInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += ethInfo + "\n"
-	}
-	if this.ontInvoker != nil {
-		ontInfo, err := this.ontInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += ontInfo + "\n"
-	}
-	if this.cosmosInvoker != nil {
-		cmInfo, err := this.cosmosInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += cmInfo + "\n"
-	}
+	//if this.btcInvoker != nil {
+	//	btcInfo, err := this.btcInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += btcInfo + "\n"
+	//}
+	//if this.ethInvoker != nil {
+	//	ethInfo, err := this.ethInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += ethInfo + "\n"
+	//}
+	//if this.ontInvoker != nil {
+	//	ontInfo, err := this.ontInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += ontInfo + "\n"
+	//}
+	//if this.cosmosInvoker != nil {
+	//	cmInfo, err := this.cosmosInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += cmInfo + "\n"
+	//}
 
 	log.Infof("account info: {\n %s}", str)
 }

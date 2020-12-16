@@ -28,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/polynetwork/poly-io-test/chains/eth/abi/eccm"
+	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
 	"github.com/polynetwork/poly-io-test/log"
 	"io/ioutil"
 	"math/big"
@@ -162,7 +162,7 @@ func (self *ETHTools) GetBlockHeader(height uint64) (*types.Header, error) {
 
 func (self *ETHTools) GetSmartContractEventByBlock(contractAddr string, height uint64) ([]*LockEvent, []*UnlockEvent, error) {
 	eccmAddr := common.HexToAddress(contractAddr)
-	instance, err := eccm.NewEthCrossChainManager(eccmAddr, self.ethclient)
+	instance, err := eccm_abi.NewEthCrossChainManager(eccmAddr, self.ethclient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("GetSmartContractEventByBlock, error: %s", err.Error())
 	}
@@ -312,7 +312,7 @@ func (self *ETHTools) WaitTransactionsConfirm(hashs []common.Hash) {
 
 func (self *ETHTools) WaitTransactionConfirm(hash common.Hash) {
 	for {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 100)
 		_, ispending, err := self.ethclient.TransactionByHash(context.Background(), hash)
 		if err != nil {
 			log.Errorf("failed to call TransactionByHash: %v", err)
