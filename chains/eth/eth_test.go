@@ -5,21 +5,22 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/joeqian10/neo-gogogo/wallet"
 	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology-go-sdk"
-	"github.com/ontio/ontology/consensus/vbft/config"
-	"github.com/polynetwork/poly-go-sdk"
+	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
+	vconfig "github.com/ontio/ontology/consensus/vbft/config"
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	vconfig2 "github.com/polynetwork/poly/consensus/vbft/config"
 	common3 "github.com/polynetwork/poly/native/service/cross_chain_manager/common"
 	"github.com/polynetwork/poly/native/service/utils"
-	"math/big"
-	"testing"
-	"time"
 )
 
 func MakeEthAuth(signer *EthSigner, nonce, gasPrice, gasLimit uint64) *bind.TransactOpts {
@@ -75,7 +76,7 @@ func TestNewNonceManager(t *testing.T) {
 	tx := "0x05a873aba68598585b0d22553de8a86a158992b2ddca77e82eea95d06205d550"
 	txhash := common.HexToHash(tx)
 
-	invoker := NewEInvoker()
+	invoker := NewEInvoker(config.DefConfig.EthChainID)
 	invoker.ETHUtil.WaitTransactionConfirm(txhash)
 
 	gasPrice := big.NewInt(100 * 1e9)

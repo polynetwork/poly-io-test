@@ -17,10 +17,11 @@
 package testcase
 
 import (
+	"time"
+
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testframework"
-	"time"
 )
 
 func SendOntToEthChain(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
@@ -1196,6 +1197,25 @@ func EthToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframew
 		log.Infof("EthToNeoAndBack, send %d eth from NEO to ontology, waiting for confirmation...", amt)
 		WaitUntilClean(status)
 		log.Infof("EthToNeoAndBack, eth all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func BnbToBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendBnbCrossBsc(ctx, status, amt); err != nil {
+				log.Errorf("BnbToBsc, SendBnbCrossBsc error: %v", err)
+				return false
+			}
+		}
+		log.Infof("BnbToBsc, send %d eth to Eth, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		log.Infof("BnbToBsc, eth all received ( batch: %d )", i)
 	}
 
 	status.SetItSuccess(1)

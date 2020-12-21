@@ -21,6 +21,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"math/big"
+	"strings"
+	"time"
+
 	types2 "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -31,7 +36,7 @@ import (
 	"github.com/joeqian10/neo-gogogo/helper"
 	"github.com/joeqian10/neo-gogogo/sc"
 	"github.com/joeqian10/neo-gogogo/tx"
-	"github.com/ontio/ontology-go-sdk"
+	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	ontcommon "github.com/ontio/ontology/common"
 	nutils "github.com/ontio/ontology/smartcontract/service/native/utils"
 	"github.com/polynetwork/eth-contracts/go_abi/btcx_abi"
@@ -46,10 +51,6 @@ import (
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testframework"
-	"math"
-	"math/big"
-	"strings"
-	"time"
 )
 
 func GetAccountByPath(path string) (*ontology_go_sdk.Account, error) {
@@ -2161,6 +2162,59 @@ func SendEthCrossNeo(ctx *testframework.TestFrameworkContext, status *testframew
 	}
 	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"EthToNeo", time.Now()})
 	WaitTransactionConfirm(ctx.EthInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
+func SendBnbCrossBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.BscInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBsc, get suggest gas price failed error: %s", err.Error())
+	}
+	//gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBsc, abi.JSON error:" + err.Error())
+	}
+	rawFrom := ctx.BscInvoker.EthTestSigner.Address.Bytes()
+	assetaddress := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.BscChainID), rawFrom[:],
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBsc, contractabi.Pack error:" + err.Error())
+	}
+
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.EthLockProxy)
+	callMsg := ethereum.CallMsg{
+		From: ctx.BscInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(amount)), Data: txData,
+	}
+	gasLimit, err := ctx.BscInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBsc, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.BscInvoker.NM.GetAddressNonce(ctx.BscInvoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBsc, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.BscInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBnb, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.BscInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendBnbCrossBnb, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"BnbToBsc", time.Now()})
+	WaitTransactionConfirm(ctx.BscInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
 	return nil
 }
 

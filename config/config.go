@@ -29,7 +29,9 @@ import (
 const (
 	CM_BTCX  = "btcx"
 	CM_ETHX  = "ethx"
+	CM_BNBX  = "bnbx"
 	CM_ERC20 = "erc20x"
+	CM_BEP20 = "bep20x"
 	CM_ONT   = "ontx"
 	CM_ONG   = "ongx"
 	CM_OEP4  = "oep4x"
@@ -41,7 +43,7 @@ type TestConfig struct {
 	EthChainID uint64
 	OntChainID uint64
 	NeoChainID uint64
-	BSCChainID uint64
+	BscChainID uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -106,6 +108,22 @@ type TestConfig struct {
 	// Circle batch
 	TxNumPerBatch uint64
 
+	// bsc contracts: auto set after deploy
+	BscEccd      string
+	BscEccm      string
+	BscEccmp     string
+	BscLockProxy string
+	Bep20        string
+	BscOep4      string
+	BscOngx      string
+	BscOntx      string
+	BscWBTC      string
+	BscUSDT      string
+	BscDai       string
+	BscUSDC      string
+	BscNeo       string
+	BscRenBTC    string
+
 	// eth contracts: auto set after deploy
 	EthErc20            string
 	EthOep4             string
@@ -126,9 +144,11 @@ type TestConfig struct {
 
 	// ont contracts: auto set after deploy
 	OntErc20            string
+	OntBep20            string
 	OntOep4             string
 	OntLockProxy        string
 	OntEth              string
+	OntBnb              string
 	OntUSDT             string
 	OntWBTC             string
 	OntDai              string

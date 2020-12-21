@@ -159,9 +159,9 @@ func main() {
 			if RegisterCosmos(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
 			}
-		case config.DefConfig.BSCChainID:
+		case config.DefConfig.BscChainID:
 			if RegisterBSC(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.BSCChainID, poly, accArr)
+				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
@@ -180,7 +180,7 @@ func main() {
 				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
 			}
 			if RegisterBSC(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.BSCChainID, poly, accArr)
+				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
 		}
 
@@ -207,7 +207,7 @@ func main() {
 			SyncNeoGenesisHeader(poly, accArr)
 		case config.DefConfig.CMCrossChainId:
 			SyncCosmosGenesisHeader(poly, accArr)
-		case config.DefConfig.BSCChainID:
+		case config.DefConfig.BscChainID:
 			SyncBSCGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
@@ -593,13 +593,13 @@ func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	}
 
 	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
-		bsc.HeightAndValidators{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
 	}}
 	raw, err := json.Marshal(genesisHeader)
 	if err != nil {
 		panic(err)
 	}
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.BSCChainID, raw, accArr)
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.BscChainID, raw, accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("bsc already synced")
@@ -956,21 +956,34 @@ func RegisterCosmos(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 }
 
 func RegisterBSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.BSCURL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
 	blkToWait := uint64(15)
 	extra := bsc.ExtraInfo{
-		// test id 97
-		ChainID: big.NewInt(97),
+		ChainID: chainID,
 	}
+
 	extraBytes, _ := json.Marshal(extra)
-	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.BSCChainID, 5, "bsc",
-		blkToWait, []byte{}, extraBytes, acc)
+
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BscEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterBSC, failed to decode eccd '%s' : %v", config.DefConfig.BscEccd, err))
+	}
+
+	fmt.Println("config.DefConfig.BSCChainID", config.DefConfig.BscChainID, "extraBytes", string(extraBytes), "BscEccd", config.DefConfig.BscEccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.BscChainID, 6, "bsc",
+		blkToWait, eccd, extraBytes, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("bsc chain %d already registered", config.DefConfig.BSCChainID)
+			log.Infof("bsc chain %d already registered", config.DefConfig.BscChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("bsc chain %d already requested", config.DefConfig.BSCChainID)
+			log.Infof("bsc chain %d already requested", config.DefConfig.BscChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterBSC failed: %v", err))

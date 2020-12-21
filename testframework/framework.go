@@ -18,6 +18,11 @@ package testframework
 
 import (
 	"fmt"
+	"os"
+	"reflect"
+	"sync"
+	"time"
+
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
@@ -25,12 +30,8 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
-	"os"
-	"reflect"
-	"sync"
-	"time"
 
-	"github.com/polynetwork/poly-go-sdk"
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 )
 
 //Default TestFramework instance
@@ -55,6 +56,7 @@ type TestFramework struct {
 	rcSdk *poly_go_sdk.PolySdk
 	// invokers
 	ethInvoker    *eth.EInvoker
+	bscInvoker    *eth.EInvoker
 	btcInvoker    *btc.BtcInvoker
 	ontInvoker    *ont.OntInvoker
 	cosmosInvoker *cosmos.CosmosInvoker
@@ -114,14 +116,17 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	this.onTestStart()
 	defer this.onTestFinish(testCaseList)
 
-	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.btcInvoker,
+	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.bscInvoker, this.btcInvoker,
 		this.ontInvoker, this.cosmosInvoker, this.neoInvoker)
 	if this.ontInvoker != nil {
 		go MonitorOnt(ctx)
 	}
 	go MonitorRChain(ctx)
 	if this.ethInvoker != nil {
-		go MonitorEthChain(ctx)
+		go MonitorEthLikeChain(ctx, config.DefConfig.EthChainID)
+	}
+	if this.bscInvoker != nil {
+		go MonitorEthLikeChain(ctx, config.DefConfig.BscChainID)
 	}
 	if this.btcInvoker != nil {
 		go MonitorBtc(ctx)
@@ -168,6 +173,11 @@ func (this *TestFramework) SetRcSdk(rcSdk *poly_go_sdk.PolySdk) {
 //SetETH instance to test framework
 func (this *TestFramework) SetEthInvoker(invoker *eth.EInvoker) {
 	this.ethInvoker = invoker
+}
+
+//SetBSC instance to test framework
+func (this *TestFramework) SetBSCInvoker(invoker *eth.EInvoker) {
+	this.bscInvoker = invoker
 }
 
 //SetBtcCli instance to test framework

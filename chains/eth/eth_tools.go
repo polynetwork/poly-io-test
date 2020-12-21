@@ -23,6 +23,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"math/big"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,12 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
 	"github.com/polynetwork/poly-io-test/log"
-	"io/ioutil"
-	"math/big"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type ETHTools struct {
@@ -158,6 +159,10 @@ func (self *ETHTools) GetBlockHeader(height uint64) (*types.Header, error) {
 	}
 
 	return rsp.Result, nil
+}
+
+func (self *ETHTools) GetChainID() (*big.Int, error) {
+	return self.ethclient.ChainID(context.Background())
 }
 
 func (self *ETHTools) GetSmartContractEventByBlock(contractAddr string, height uint64) ([]*LockEvent, []*UnlockEvent, error) {

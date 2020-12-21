@@ -19,7 +19,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/polynetwork/poly-go-sdk"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
@@ -29,10 +34,6 @@ import (
 	"github.com/polynetwork/poly-io-test/log"
 	_ "github.com/polynetwork/poly-io-test/testcase"
 	"github.com/polynetwork/poly-io-test/testframework"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 var (
@@ -60,7 +61,18 @@ func main() {
 		panic(err)
 	}
 
-	ethInvoker := eth.NewEInvoker()
+	var (
+		ethInvoker *eth.EInvoker
+		bscInvoker *eth.EInvoker
+	)
+	if config.DefConfig.EthChainID > 0 {
+		ethInvoker = eth.NewEInvoker(config.DefConfig.EthChainID)
+	}
+
+	if config.DefConfig.BscChainID > 0 {
+		bscInvoker = eth.NewEInvoker(config.DefConfig.BscChainID)
+	}
+
 	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
 	//	config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
 	//	config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
@@ -86,7 +98,12 @@ func main() {
 		testCases = strings.Split(TestCases, ",")
 	}
 	testframework.TFramework.SetRcSdk(rcSdk)
-	testframework.TFramework.SetEthInvoker(ethInvoker)
+	if ethInvoker != nil {
+		testframework.TFramework.SetEthInvoker(ethInvoker)
+	}
+	if bscInvoker != nil {
+		testframework.TFramework.SetBSCInvoker(bscInvoker)
+	}
 	//testframework.TFramework.SetBtcInvoker(btcInvoker)
 	testframework.TFramework.SetOntInvoker(ontInvoker)
 	testframework.TFramework.SetCosmosInvoker(cmInvoker)

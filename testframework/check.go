@@ -20,15 +20,17 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/polynetwork/poly-io-test/config"
-	"github.com/polynetwork/poly-io-test/log"
-	"github.com/polynetwork/poly/common"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path"
 	"time"
+
+	"github.com/btcsuite/btcd/wire"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly/common"
 )
 
 func MonitorOnt(ctx *TestFrameworkContext) {
@@ -99,10 +101,34 @@ func parseOntologyChainBlock(ctx *TestFrameworkContext, height uint32) error {
 	return nil
 }
 
-func MonitorEthChain(ctx *TestFrameworkContext) {
-	currentHeight, err := ctx.EthInvoker.ETHUtil.GetNodeHeight()
+func getInvoker(ctx *TestFrameworkContext, chainID uint64) *eth.EInvoker {
+	switch chainID {
+	case config.DefConfig.EthChainID:
+		return ctx.EthInvoker
+	case config.DefConfig.BscChainID:
+		return ctx.BscInvoker
+	default:
+		panic(fmt.Sprintf("unknown chain id:%d", chainID))
+	}
+}
+
+func getEccm(chainID uint64) string {
+	switch chainID {
+	case config.DefConfig.EthChainID:
+		return config.DefConfig.Eccm
+	case config.DefConfig.BscChainID:
+		return config.DefConfig.BscEccm
+	default:
+		panic(fmt.Sprintf("unknown chain id:%d", chainID))
+	}
+}
+
+func MonitorEthLikeChain(ctx *TestFrameworkContext, chainID uint64) {
+	invoker := getInvoker(ctx, chainID)
+
+	currentHeight, err := invoker.ETHUtil.GetNodeHeight()
 	if err != nil {
-		log.Errorf("ctx.EthTools.GetNodeHeight error: %s", err)
+		log.Errorf("MonitorEthChain - ctx.EthTools.GetNodeHeight error: %s", err)
 		os.Exit(1)
 	}
 	ethHeight := uint32(currentHeight) - 5
@@ -110,7 +136,7 @@ func MonitorEthChain(ctx *TestFrameworkContext) {
 	for {
 		select {
 		case <-updateTicker.C:
-			currentHeight, err := ctx.EthInvoker.ETHUtil.GetNodeHeight()
+			currentHeight, err := invoker.ETHUtil.GetNodeHeight()
 			if err != nil {
 				log.Errorf("ctx.EthTools.GetNodeHeight error: %s", err)
 				continue
@@ -120,7 +146,7 @@ func MonitorEthChain(ctx *TestFrameworkContext) {
 			}
 			for uint32(currentHeight) > ethHeight+5 {
 				ethHeight++
-				err = parseEthChainBlock(ctx, ethHeight) // TODO: influenced by forks
+				err = parseEthChainBlock(ctx, invoker, ethHeight) // TODO: influenced by forks
 				if err != nil {
 					log.Errorf("parseEthChainBlock error: %s", err)
 					ethHeight--
@@ -131,9 +157,9 @@ func MonitorEthChain(ctx *TestFrameworkContext) {
 	}
 }
 
-func parseEthChainBlock(ctx *TestFrameworkContext, height uint32) error {
+func parseEthChainBlock(ctx *TestFrameworkContext, invoker *eth.EInvoker, height uint32) error {
 	// contract is different
-	lockevents, unlockevents, err := ctx.EthInvoker.ETHUtil.GetSmartContractEventByBlock(config.DefConfig.Eccm, uint64(height))
+	lockevents, unlockevents, err := invoker.ETHUtil.GetSmartContractEventByBlock(getEccm(invoker.ChainID), uint64(height))
 	if err != nil {
 		return err
 	}

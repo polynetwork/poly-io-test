@@ -21,6 +21,9 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethComm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -37,13 +40,11 @@ import (
 	"github.com/polynetwork/eth-contracts/go_abi/ongx_abi"
 	"github.com/polynetwork/eth-contracts/go_abi/ontx_abi"
 	"github.com/polynetwork/poly-io-test/config"
-	"log"
-	"math/big"
 )
 
 type EInvoker struct {
 	PrivateKey     *ecdsa.PrivateKey
-	ChainId        int8
+	ChainID        uint64
 	TConfiguration *config.TestConfig
 	ETHUtil        *ETHTools
 	NM             *NonceManager
@@ -54,14 +55,37 @@ var (
 	DefaultGasLimit = 5000000
 )
 
-func NewEInvoker() *EInvoker {
+func NewEInvoker(chainID uint64) *EInvoker {
 	instance := &EInvoker{}
+	instance.ChainID = chainID
 	instance.TConfiguration = config.DefConfig
-	instance.ETHUtil = NewEthTools(instance.TConfiguration.EthURL)
+	instance.ETHUtil = NewEthTools(instance.url())
 	instance.NM = NewNonceManager(instance.ETHUtil.GetEthClient())
-	instance.EthTestSigner, _ = NewEthSigner(instance.TConfiguration.ETHPrivateKey)
+	instance.EthTestSigner, _ = NewEthSigner(instance.privateKey())
 	instance.PrivateKey = instance.EthTestSigner.PrivateKey
 	return instance
+}
+
+func (ethInvoker *EInvoker) url() string {
+	switch ethInvoker.ChainID {
+	case ethInvoker.TConfiguration.BscChainID:
+		return ethInvoker.TConfiguration.BSCURL
+	case ethInvoker.TConfiguration.EthChainID:
+		return ethInvoker.TConfiguration.EthURL
+	default:
+		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
+	}
+}
+
+func (ethInvoker *EInvoker) privateKey() string {
+	switch ethInvoker.ChainID {
+	case ethInvoker.TConfiguration.BscChainID:
+		return ethInvoker.TConfiguration.BSCPrivateKey
+	case ethInvoker.TConfiguration.EthChainID:
+		return ethInvoker.TConfiguration.ETHPrivateKey
+	default:
+		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
+	}
 }
 
 func (ethInvoker *EInvoker) MakeSmartContractAuth() (*bind.TransactOpts, error) {
@@ -108,7 +132,7 @@ func (ethInvoker *EInvoker) DeployECCMContract(eccdAddress string) (ethComm.Addr
 	}
 	address := ethComm.HexToAddress(eccdAddress)
 	contractAddress, tx, contract, err := eccm_abi.DeployEthCrossChainManager(auth,
-		ethInvoker.ETHUtil.GetEthClient(), address, config.DefConfig.EthChainID)
+		ethInvoker.ETHUtil.GetEthClient(), address, ethInvoker.ChainID)
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}
@@ -180,6 +204,10 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 		toAddr = addr[:]
 	} else if uint64(toChainId) == config.DefConfig.CMCrossChainId {
 		toAddr = []byte(toAssetHash)
+	} else if uint64(toChainId) == config.DefConfig.EthChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.BscChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	}
 	tx, err := contract.BindAssetHash(auth, ethComm.HexToAddress(fromAssetHash),
 		uint64(toChainId), toAddr[:])
