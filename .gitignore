@@ -7,3 +7,4 @@ config-*.json
 test.go
 fisco_sdk.toml
 *.yaml
+config.json
