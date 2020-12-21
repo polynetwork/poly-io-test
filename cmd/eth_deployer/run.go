@@ -67,7 +67,7 @@ func DeployETHSmartContract() {
 			panic(err)
 		}
 
-		eccmAddr, _, err = invoker.DeployECCMContract(eccdAddr.Hex())
+		eccmAddr, _, err = invoker.DeployECCMContract(eccdAddr.Hex(), config.DefConfig.EthChainID)
 		if err != nil {
 			panic(err)
 		}

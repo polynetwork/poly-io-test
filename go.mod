@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hyperledger/fabric-protos-go v0.0.0-20200707132912-fee30f3ccd23
-	github.com/hyperledger/fabric-sdk-go v1.0.0-beta3.0.20201006151309-9c426dcc5096
+	github.com/hyperledger/fabric-sdk-go v1.0.0-rc1
 	github.com/joeqian10/neo-gogogo v0.0.0-20200811090937-d8aab8600241
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
@@ -36,4 +36,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
 
-replace github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20201215112041-6532ab4e12f4
+replace (
+    github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20201221040156-46fc849f576f
+    github.com/go-kit/kit v0.10.0 => github.com/go-kit/kit v0.8.0
+)

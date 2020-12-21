@@ -69,7 +69,7 @@ func DeployFiscoSmartContract() {
 			panic(err)
 		}
 
-		eccmAddr, _, err = invoker.DeployECCMContract(eccdAddr.Hex())
+		eccmAddr, _, err = invoker.DeployECCMContract(eccdAddr.Hex(), config.DefConfig.FiscoChainID)
 		if err != nil {
 			panic(err)
 		}

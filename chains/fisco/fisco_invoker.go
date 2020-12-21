@@ -73,11 +73,11 @@ func (fisInvoker *FiscoInvoker) DeployEthChainDataContract() (common.Address, *e
 	return contractAddress, contract, nil
 }
 
-func (fisInvoker *FiscoInvoker) DeployECCMContract(eccdAddress string) (common.Address, *eccm_abi.EthCrossChainManager, error) {
+func (fisInvoker *FiscoInvoker) DeployECCMContract(eccdAddress string, id uint64) (common.Address, *eccm_abi.EthCrossChainManager, error) {
 
 	address := common.HexToAddress(eccdAddress)
 	contractAddress, tx, contract, err := eccm_abi.DeployEthCrossChainManager(fisInvoker.FiscoSdk.GetTransactOpts(),
-		fisInvoker.FiscoSdk, address)
+		fisInvoker.FiscoSdk, address, id)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}

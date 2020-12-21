@@ -101,14 +101,14 @@ func (ethInvoker *EInvoker) DeployEthChainDataContract() (ethComm.Address, *eccd
 	return contractAddress, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployECCMContract(eccdAddress string) (ethComm.Address, *eccm_abi.EthCrossChainManager, error) {
+func (ethInvoker *EInvoker) DeployECCMContract(eccdAddress string, id uint64) (ethComm.Address, *eccm_abi.EthCrossChainManager, error) {
 	auth, err := ethInvoker.MakeSmartContractAuth()
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}
 	address := ethComm.HexToAddress(eccdAddress)
 	contractAddress, tx, contract, err := eccm_abi.DeployEthCrossChainManager(auth,
-		ethInvoker.ETHUtil.GetEthClient(), address, config.DefConfig.EthChainID)
+		ethInvoker.ETHUtil.GetEthClient(), address, id)
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}

@@ -2686,3 +2686,4 @@ func (_Pausable *PausableFilterer) ParseUnpaused(log types.Log) (*PausableUnpaus
 	}
 	return event, nil
 }
+
