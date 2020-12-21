@@ -612,7 +612,7 @@ func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 			hdr.Hash().String(), txhash.ToHexString())
 	}
 
-	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.Eccm), tool.GetEthClient())
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.BscEccm), tool.GetEthClient())
 	if err != nil {
 		panic(err)
 	}

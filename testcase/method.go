@@ -2184,7 +2184,7 @@ func SendBnbCrossBsc(ctx *testframework.TestFrameworkContext, status *testframew
 		return fmt.Errorf("SendBnbCrossBsc, contractabi.Pack error:" + err.Error())
 	}
 
-	contractAddr := ethcommon.HexToAddress(config.DefConfig.EthLockProxy)
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.BscLockProxy)
 	callMsg := ethereum.CallMsg{
 		From: ctx.BscInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
 		Value: big.NewInt(int64(amount)), Data: txData,
