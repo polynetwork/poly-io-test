@@ -324,7 +324,7 @@ func SetOtherLockProxy(invoker *eth.EInvoker) {
 		}
 		hash := tx.Hash()
 		invoker.ETHUtil.WaitTransactionConfirm(hash)
-		fmt.Printf("binding eth proxy: ( txhash: %s )\n", hash.String())
+		fmt.Printf("binding bsc proxy: ( txhash: %s )\n", hash.String())
 	}
 }
 
