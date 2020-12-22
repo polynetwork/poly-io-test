@@ -2321,7 +2321,7 @@ func SendEthBnbCrossBsc(ctx *testframework.TestFrameworkContext, status *testfra
 	}
 
 	nonce := ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
-	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(0), gasLimit, gasPrice, txData)
 	bf := new(bytes.Buffer)
 	rlp.Encode(bf, tx)
 
