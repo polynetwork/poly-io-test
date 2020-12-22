@@ -125,6 +125,7 @@ type TestConfig struct {
 	BscRenBTC    string
 
 	// eth contracts: auto set after deploy
+	EthBnb              string
 	EthErc20            string
 	EthOep4             string
 	Eccd                string

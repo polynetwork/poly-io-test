@@ -213,7 +213,7 @@ func SetupUSDC(ethInvoker *eth.EInvoker) {
 	}
 	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
-	fmt.Printf("binding USDC of ontology on ethereum: ( txhash: %s )\n", hash.String())
+	fmt.Printf("binding USDC of ontology on bsc: ( txhash: %s )\n", hash.String())
 }
 
 func SetupOntAsset(invoker *eth.EInvoker) {
@@ -254,6 +254,15 @@ func SetupBnb(ethInvoker *eth.EInvoker) {
 		}
 		hash := tx.Hash()
 		fmt.Printf("binding bnbx of ontology on bsc: ( txhash: %s )\n", hash.String())
+	}
+
+	if config.DefConfig.EthBnb != "" {
+		tx, err := ethInvoker.BindAssetHash(config.DefConfig.BscLockProxy, ethNativeAddr, config.DefConfig.EthBnb, config.DefConfig.EthChainID, 0)
+		if err != nil {
+			panic(fmt.Errorf("SetupBnb2ONT, failed to bind asset hash: %v", err))
+		}
+		hash := tx.Hash()
+		fmt.Printf("binding bnb of bsc on ethereum: ( txhash: %s )\n", hash.String())
 	}
 
 	tx, err := ethInvoker.BindAssetHash(config.DefConfig.BscLockProxy, ethNativeAddr, config.CM_BNBX, config.DefConfig.CMCrossChainId, 0)
@@ -326,6 +335,21 @@ func SetOtherLockProxy(invoker *eth.EInvoker) {
 		invoker.ETHUtil.WaitTransactionConfirm(hash)
 		fmt.Printf("binding bsc proxy: ( txhash: %s )\n", hash.String())
 	}
+
+	if config.DefConfig.EthLockProxy != "" {
+		auth, err := invoker.MakeSmartContractAuth()
+		if err != nil {
+			panic(fmt.Errorf("failed to get auth: %v", err))
+		}
+		other := common2.HexToAddress(config.DefConfig.EthLockProxy)
+		tx, err := contract.BindProxyHash(auth, config.DefConfig.EthChainID, other[:])
+		if err != nil {
+			panic(fmt.Errorf("failed to bind proxy: %v", err))
+		}
+		hash := tx.Hash()
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
+		fmt.Printf("binding eth proxy: ( txhash: %s )\n", hash.String())
+	}
 }
 
 func SetUpEthContracts() {
@@ -337,15 +361,16 @@ func SetUpEthContracts() {
 	if config.DefConfig.OntLockProxy != "" {
 		SetupOntAsset(invoker)
 	}
-	if config.DefConfig.EthWBTC != "" {
+	if config.DefConfig.BscWBTC != "" {
 		SetupWBTC(invoker)
 	}
-	if config.DefConfig.EthDai != "" {
+	if config.DefConfig.BscDai != "" {
 		SetupDAI(invoker)
 	}
-	if config.DefConfig.EthUSDT != "" {
+	if config.DefConfig.BscUSDT != "" {
 		SetupUSDT(invoker)
 	}
+
 	//SetupUSDC(invoker)
 	SetOtherLockProxy(invoker)
 }
