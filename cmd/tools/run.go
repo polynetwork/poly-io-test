@@ -1595,7 +1595,7 @@ func UpdateFiscoCCMChainId(nid uint64) {
 	if err != nil {
 		panic(err)
 	}
-	eccmp, err := eccmp_abi2.NewEthCrossChainManagerProxy(common3.HexToAddress(config.DefConfig.FiscoCCMC), invoker.FiscoSdk)
+	eccmp, err := eccmp_abi2.NewEthCrossChainManagerProxy(common3.HexToAddress(config.DefConfig.FiscoCCMP), invoker.FiscoSdk)
 	if err != nil {
 		panic(err)
 	}
