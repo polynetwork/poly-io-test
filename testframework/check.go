@@ -181,7 +181,7 @@ func parseEthChainBlock(ctx *TestFrameworkContext, invoker *eth.EInvoker, height
 		}
 		ethTxIdByte = append(ethTxIdByte, indexInt.Bytes()...)
 		ethTxIdStr := hex.EncodeToString(ethTxIdByte)
-		log.Infof("send cross chain tx on eth, tx hash: %s, tx id: %s", ethTxHash, ethTxIdStr)
+		log.Infof("send cross chain tx on eth, tx hash: %s, tx id: %s chainID:%d", ethTxHash, ethTxIdStr, invoker.ChainID)
 		caseStatus := ctx.Status.GetCaseStatus(idx)
 		caseStatus.AddTx(ethTxIdStr, &TxInfo{ethTxHash, time.Now()})
 		caseStatus.Del(ethTxHash)
