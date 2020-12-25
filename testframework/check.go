@@ -193,7 +193,7 @@ func parseEthChainBlock(ctx *TestFrameworkContext, invoker *eth.EInvoker, height
 		allianceTxHash := event.RTxid
 		rawTxHash := event.FromTxId
 		if ok, idx := ctx.Status.IsTxPending(rawTxHash); ok {
-			log.Infof("receive cross chain tx on eth, txhash: %s, alliance tx hash: %s, raw tx hash: %s", event.Txid, allianceTxHash, rawTxHash)
+			log.Infof("receive cross chain tx on eth, txhash: %s, alliance tx hash: %s, raw tx hash: %s chainID:%d", event.Txid, allianceTxHash, rawTxHash, invoker.ChainID)
 			ctx.Status.DelWithIndex(rawTxHash, idx)
 		}
 	}
