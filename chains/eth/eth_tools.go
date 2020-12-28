@@ -136,6 +136,15 @@ func (self *ETHTools) GetNodeHeight() (uint64, error) {
 	}
 }
 
+func (self *ETHTools) GetBlockHeaderByHash(hash common.Hash) (*types.Header, error) {
+	b, err := self.ethclient.BlockByHash(context.Background(), hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Header(), nil
+}
+
 func (self *ETHTools) GetBlockHeader(height uint64) (*types.Header, error) {
 	params := []interface{}{fmt.Sprintf("0x%x", height), true}
 	req := &BlockReq{
