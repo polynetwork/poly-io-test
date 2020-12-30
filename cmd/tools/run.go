@@ -962,7 +962,7 @@ func RegisterBSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		panic(err)
 	}
 
-	blkToWait := uint64(15)
+	blkToWait := uint64(20)
 	extra := bsc.ExtraInfo{
 		ChainID: chainID,
 	}
