@@ -1,6 +1,7 @@
 .idea/
 .idea/*
 .wallets/*
+.alliance-wallets/*
 .vscode
 report/*
 config-*.json
