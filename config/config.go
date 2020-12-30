@@ -165,6 +165,7 @@ type TestConfig struct {
 	CNeo         string
 	NeoOnt       string
 	NeoOntd      string
+	NeoBnb       string
 	NeoEth       string
 
 	// cosmos

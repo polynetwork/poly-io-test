@@ -28,6 +28,7 @@ import (
 	ethComm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/joeqian10/neo-gogogo/helper"
 	ontcommon "github.com/ontio/ontology/common"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
 	"github.com/polynetwork/eth-contracts/go_abi/btcx_abi"
@@ -208,6 +209,12 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.BscChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.NeoChainID {
+		other, err := helper.UInt160FromString(toAssetHash)
+		if err != nil {
+			return nil, err
+		}
+		toAddr = other[:]
 	}
 	tx, err := contract.BindAssetHash(auth, ethComm.HexToAddress(fromAssetHash),
 		uint64(toChainId), toAddr[:])

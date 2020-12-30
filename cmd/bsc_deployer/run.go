@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	common2 "github.com/ethereum/go-ethereum/common"
+	"github.com/joeqian10/neo-gogogo/helper"
 	"github.com/ontio/ontology/common"
 	"github.com/polynetwork/poly-io-test/chains/eth"
 	"github.com/polynetwork/poly-io-test/config"
@@ -264,6 +265,14 @@ func SetupBnb(ethInvoker *eth.EInvoker) {
 		hash := tx.Hash()
 		fmt.Printf("binding bnb of bsc on ethereum: ( txhash: %s )\n", hash.String())
 	}
+	if config.DefConfig.NeoBnb != "" {
+		tx, err := ethInvoker.BindAssetHash(config.DefConfig.BscLockProxy, ethNativeAddr, config.DefConfig.NeoBnb, config.DefConfig.NeoChainID, 0)
+		if err != nil {
+			panic(fmt.Errorf("SetupBnb2Neo, failed to bind asset hash: %v", err))
+		}
+		hash := tx.Hash()
+		fmt.Printf("binding bnb of bsc on neo: ( txhash: %s )\n", hash.String())
+	}
 
 	tx, err := ethInvoker.BindAssetHash(config.DefConfig.BscLockProxy, ethNativeAddr, config.CM_BNBX, config.DefConfig.CMCrossChainId, 0)
 	if err != nil {
@@ -349,6 +358,24 @@ func SetOtherLockProxy(invoker *eth.EInvoker) {
 		hash := tx.Hash()
 		invoker.ETHUtil.WaitTransactionConfirm(hash)
 		fmt.Printf("binding eth proxy: ( txhash: %s )\n", hash.String())
+	}
+
+	if config.DefConfig.NeoLockProxy != "" {
+		auth, err := invoker.MakeSmartContractAuth()
+		if err != nil {
+			panic(fmt.Errorf("failed to get auth: %v", err))
+		}
+		other, err := helper.UInt160FromString(config.DefConfig.NeoLockProxy)
+		if err != nil {
+			panic(fmt.Errorf("UInt160FromString error: %v", err))
+		}
+		tx, err := contract.BindProxyHash(auth, config.DefConfig.NeoChainID, other[:])
+		if err != nil {
+			panic(fmt.Errorf("failed to bind proxy: %v", err))
+		}
+		hash := tx.Hash()
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
+		fmt.Printf("binding neo proxy: ( txhash: %s )\n", hash.String())
 	}
 }
 
