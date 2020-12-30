@@ -1250,6 +1250,32 @@ func BnbToEthAndBack(ctx *testframework.TestFrameworkContext, status *testframew
 	return true
 }
 
+func BnbToEthOnce(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+	if err := SendBnbCrossEth(ctx, status, amt); err != nil {
+		log.Errorf("BnbToEthOnce, SendBnbCrossEth error: %v", err)
+		return false
+	}
+	log.Infof("BnbToEthOnce, send %d bnb to Eth, waiting for confirmation...", amt)
+	WaitUntilClean(status)
+
+	status.SetItSuccess(1)
+	return true
+}
+
+func EthBnbToBscOnce(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+	if err := SendEthBnbCrossBsc(ctx, status, amt); err != nil {
+		log.Errorf("EthBnbToBscOnce, SendBnbCrossEth error: %v", err)
+		return false
+	}
+	log.Infof("EthBnbToBscOnce, send %d ethbnb to Bsc, waiting for confirmation...", amt)
+	WaitUntilClean(status)
+
+	status.SetItSuccess(1)
+	return true
+}
+
 func USDCCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
 	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
 		amt := GetRandAmount(config.DefConfig.USDCValLimit, 1)
