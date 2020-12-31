@@ -64,6 +64,20 @@ func (this *NonceManager) GetAddressNonce(address common.Address) uint64 {
 	return nonce
 }
 
+func (this *NonceManager) GetRealTimeAddressNonce(address common.Address) uint64 {
+	this.lock.Lock()
+	defer this.lock.Unlock()
+
+	uintNonce, err := this.ethClient.PendingNonceAt(context.Background(), address)
+	if err != nil {
+		log.Infof("GetAddressNonce: cannot get account %s nonce, err: %s, set it to nil!",
+			address, err)
+	}
+	// increase record
+	this.addressNonce[address] = uintNonce
+	return this.addressNonce[address]
+}
+
 func (this *NonceManager) DecreaseAddressNonce(address common.Address) {
 	this.lock.Lock()
 	defer this.lock.Unlock()

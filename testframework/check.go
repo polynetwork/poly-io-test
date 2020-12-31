@@ -107,6 +107,8 @@ func getInvoker(ctx *TestFrameworkContext, chainID uint64) *eth.EInvoker {
 		return ctx.EthInvoker
 	case config.DefConfig.BscChainID:
 		return ctx.BscInvoker
+	case config.DefConfig.HecoChainID:
+		return ctx.HecoInvoker
 	default:
 		panic(fmt.Sprintf("unknown chain id:%d", chainID))
 	}
@@ -118,6 +120,8 @@ func getEccm(chainID uint64) string {
 		return config.DefConfig.Eccm
 	case config.DefConfig.BscChainID:
 		return config.DefConfig.BscEccm
+	case config.DefConfig.HecoChainID:
+		return config.DefConfig.HecoEccm
 	default:
 		panic(fmt.Sprintf("unknown chain id:%d", chainID))
 	}

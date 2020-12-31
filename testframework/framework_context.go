@@ -36,27 +36,29 @@ type TestFrameworkContext struct {
 	RcSdk     *poly_go_sdk.PolySdk
 	Status    *CtxStatus
 	// invokers
-	EthInvoker *eth.EInvoker
-	BscInvoker *eth.EInvoker
-	BtcInvoker *btc.BtcInvoker
-	OntInvoker *ont.OntInvoker
-	CMInvoker  *cosmos.CosmosInvoker
-	NeoInvoker *neo.NeoInvoker
+	EthInvoker  *eth.EInvoker
+	BscInvoker  *eth.EInvoker
+	HecoInvoker *eth.EInvoker
+	BtcInvoker  *btc.BtcInvoker
+	OntInvoker  *ont.OntInvoker
+	CMInvoker   *cosmos.CosmosInvoker
+	NeoInvoker  *neo.NeoInvoker
 }
 
 //NewTestFrameworkContext return a TestFrameworkContext instance
-func NewTestFrameworkContext(fw *TestFramework, caseArr []TestCase, rcSdk *poly_go_sdk.PolySdk, eInvkr *eth.EInvoker, bscInvkr *eth.EInvoker,
+func NewTestFrameworkContext(fw *TestFramework, caseArr []TestCase, rcSdk *poly_go_sdk.PolySdk, eInvkr *eth.EInvoker, bscInvkr *eth.EInvoker, hecoInvkr *eth.EInvoker,
 	btcInvkr *btc.BtcInvoker, ontInvkr *ont.OntInvoker, cmInvoker *cosmos.CosmosInvoker, neoInvoker *neo.NeoInvoker) *TestFrameworkContext {
 	ctx := &TestFrameworkContext{
-		Framework:  fw,
-		Cases:      caseArr,
-		RcSdk:      rcSdk,
-		EthInvoker: eInvkr,
-		BscInvoker: bscInvkr,
-		BtcInvoker: btcInvkr,
-		OntInvoker: ontInvkr,
-		CMInvoker:  cmInvoker,
-		NeoInvoker: neoInvoker,
+		Framework:   fw,
+		Cases:       caseArr,
+		RcSdk:       rcSdk,
+		EthInvoker:  eInvkr,
+		BscInvoker:  bscInvkr,
+		HecoInvoker: hecoInvkr,
+		BtcInvoker:  btcInvkr,
+		OntInvoker:  ontInvkr,
+		CMInvoker:   cmInvoker,
+		NeoInvoker:  neoInvoker,
 	}
 	ctx.Status = NewCtxStatus(ctx)
 	return ctx

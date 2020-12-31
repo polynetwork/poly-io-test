@@ -30,8 +30,10 @@ const (
 	CM_BTCX  = "btcx"
 	CM_ETHX  = "ethx"
 	CM_BNBX  = "bnbx"
+	CM_HTX   = "htx"
 	CM_ERC20 = "erc20x"
 	CM_BEP20 = "bep20x"
+	CM_HRC20 = "hrc20x"
 	CM_ONT   = "ontx"
 	CM_ONG   = "ongx"
 	CM_OEP4  = "oep4x"
@@ -39,11 +41,12 @@ const (
 
 //Config object used by ontology-instance
 type TestConfig struct {
-	BtcChainID uint64
-	EthChainID uint64
-	OntChainID uint64
-	NeoChainID uint64
-	BscChainID uint64
+	BtcChainID  uint64
+	EthChainID  uint64
+	OntChainID  uint64
+	NeoChainID  uint64
+	BscChainID  uint64
+	HecoChainID uint64 `json:"HecoChainID,omitempty"`
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -70,6 +73,10 @@ type TestConfig struct {
 	BSCURL        string
 	BSCPrivateKey string
 
+	// heco url
+	HecoURL        string `json:"HecoURL,omitempty"`
+	HecoPrivateKey string `json:"HecoPrivateKey,omitempty"`
+
 	// ontology
 	OntJsonRpcAddress   string
 	OntWallet           string
@@ -90,9 +97,11 @@ type TestConfig struct {
 	CMEpoch        int64
 
 	// neo chain conf
-	NeoUrl   string
-	NeoWif   string
-	NeoEpoch uint32
+	NeoUrl       string `json:"NeoUrl,omitempty"`
+	NeoWif       string
+	NeoWallet    string `json:"NeoWallet,omitempty"`
+	NeoWalletPwd string `json:"NeoWalletPwd,omitempty"`
+	NeoEpoch     uint32
 
 	// relayer chain
 	RCWallet             string
@@ -124,6 +133,25 @@ type TestConfig struct {
 	BscNeo       string
 	BscRenBTC    string
 
+	// heco contracts: auto set after deploy
+	HecoEccd      string
+	HecoEccm      string
+	HecoEccmp     string
+	HecoLockProxy string
+	HecoHrc20     string
+	HecoHt        string
+	HecoErc20     string
+	HecoEth       string
+	HecoOep4      string
+	HecoOngx      string
+	HecoOntx      string
+	HecoWBTC      string
+	HecoUSDT      string
+	HecoDai       string
+	HecoUSDC      string
+	HecoNeo       string
+	HecoRenBTC    string
+
 	// eth contracts: auto set after deploy
 	EthBnb              string
 	EthErc20            string
@@ -135,6 +163,7 @@ type TestConfig struct {
 	EthOngx             string
 	EthOntx             string
 	EthOntd             string
+	EthHt               string
 	EthUSDT             string
 	EthWBTC             string
 	EthDai              string
@@ -146,10 +175,12 @@ type TestConfig struct {
 	// ont contracts: auto set after deploy
 	OntErc20            string
 	OntBep20            string
+	OntHrc20            string
 	OntOep4             string
 	OntLockProxy        string
 	OntEth              string
 	OntBnb              string
+	OntHt               string
 	OntUSDT             string
 	OntWBTC             string
 	OntDai              string
@@ -167,7 +198,8 @@ type TestConfig struct {
 	NeoOntd      string
 	NeoBnb       string
 	NeoEth       string
-
+	NeoHt        string
+	NeoHrc20     string
 	// cosmos
 	CMLockProxy string
 

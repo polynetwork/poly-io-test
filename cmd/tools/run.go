@@ -24,6 +24,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/joeqian10/neo-gogogo/helper"
+	"github.com/joeqian10/neo-gogogo/sc"
+	"github.com/joeqian10/neo-gogogo/tx"
+	"github.com/polynetwork/poly-io-test/chains/neo"
+	"github.com/polynetwork/poly/native/service/header_sync/heco"
 	"math/big"
 	"os"
 	"strings"
@@ -163,6 +168,10 @@ func main() {
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
+		case config.DefConfig.HecoChainID:
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
+			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
@@ -181,6 +190,9 @@ func main() {
 			}
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
+			}
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
 			}
 		}
 
@@ -204,11 +216,15 @@ func main() {
 		case config.DefConfig.OntChainID:
 			SyncOntGenesisHeader(poly, accArr)
 		case config.DefConfig.NeoChainID:
-			SyncNeoGenesisHeader(poly, accArr)
+			if err := SyncNeoGenesisHeader(poly, accArr); err != nil {
+				log.Errorf("SyncNeoGenesisHeader, err: %v", err)
+			}
 		case config.DefConfig.CMCrossChainId:
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
 			SyncBSCGenesisHeader(poly, accArr)
+		case config.DefConfig.HecoChainID:
+			SyncHecoGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -216,6 +232,7 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 			SyncNeoGenesisHeader(poly, accArr)
 			SyncBSCGenesisHeader(poly, accArr)
+			SyncHecoGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
@@ -230,6 +247,11 @@ func main() {
 			ApproveUpdateChain(config.DefConfig.EthChainID, poly, accArr)
 		}
 
+	case "update_heco":
+		accArr := getPolyAccounts(poly)
+		if UpdateHeco(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.HecoChainID, poly, accArr)
+		}
 	case "update_neo":
 		accArr := getPolyAccounts(poly)
 		if UpdateNeo(poly, acc) {
@@ -470,7 +492,7 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	if err != nil {
 		panic(err)
 	}
-	hdr, err := tool.GetBlockHeader(curr)
+	hdr, err := tool.GetBlockHeader(curr - 30)
 	if err != nil {
 		panic(err)
 	}
@@ -655,6 +677,99 @@ func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	log.Infof("successful to sync poly genesis header to BSC: ( txhash: %s )", tx.Hash().String())
 }
 
+func SyncHecoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.HecoURL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+	pEpochHeight := epochHeight - 200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+	phdr, err := tool.GetBlockHeader(pEpochHeight)
+	if err != nil {
+		panic(err)
+	}
+	pvalidators, err := heco.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+	if len(phdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
+	}
+
+	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
+		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+	}}
+	raw, err := json.Marshal(genesisHeader)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.HecoChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heco genesis header already synced")
+		} else {
+			panic(fmt.Errorf("SyncHecoGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync heco genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.HecoEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.HecoPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncHecoGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to Heco: ( txhash: %s )", tx.Hash().String())
+}
+
 func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
 	ontCli := ontology_go_sdk.NewOntologySdk()
 	ontCli.NewRpcClient().SetAddress(config.DefConfig.OntJsonRpcAddress)
@@ -729,7 +844,75 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		testcase.WaitPolyTx(txhash, poly)
 		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
 	}
+	// start sync poly header to neo side chain
+	if config.DefConfig.NeoWallet == "" {
+		log.Infof("neo wallet empty, won't sync poly header to neo ccmc")
+		return nil
+	}
+	polyHeader, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		return fmt.Errorf("poly.GetHeader(%d) to be synced to neo as genesis err; %v", config.DefConfig.RCEpoch, err)
+	}
 
+	cp1 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: polyHeader.Header.GetMessage(),
+	}
+	// public keys
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(polyHeader.Header.ConsensusPayload, info); err != nil {
+		return fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err)
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+	cp2 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: publickeys,
+	}
+	neoInvoker, err := neo.NewNeoInvoker()
+	if err != nil {
+		return fmt.Errorf("NewNeoInvoker err: %v", err)
+	}
+	sb := sc.NewScriptBuilder()
+	scriptHash, _ := neo.ParseNeoAddr(config.DefConfig.NeoCCMC) // hex string to little endian byte[]
+	sb.MakeInvocationScript(scriptHash, "InitGenesisBlock", []sc.ContractParameter{cp1, cp2})
+
+	script := sb.ToArray()
+
+	tb := tx.NewTransactionBuilder(config.DefConfig.NeoUrl)
+	from, err := helper.AddressToScriptHash(neoInvoker.Acc.Address)
+	// create an InvocationTransaction
+	sysFee := helper.Fixed8FromFloat64(0)
+	netFee := helper.Fixed8FromFloat64(0)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, from, sysFee, netFee)
+	if err != nil {
+		return fmt.Errorf("initGenesisBlock on neo tb.MakeInvocationTransaction error: %s", err)
+	}
+	// sign transaction
+	err = tx.AddSignature(itx, neoInvoker.Acc.KeyPair)
+	if err != nil {
+		return fmt.Errorf("initGenesisBlock on neo tx.AddSignature error: %s", err)
+	}
+
+	rawTxString := itx.RawTransactionString()
+	// send the raw transaction
+	response := neoInvoker.Cli.SendRawTransaction(rawTxString)
+	if response.HasError() {
+		return fmt.Errorf("initGenesisBlock on neo, SendRawTx err: %v", err)
+	}
+	log.Infof("sync poly header to neo as genesis, neoTxHash: %s", itx.HashString())
+	neo.WaitNeoTx(neoInvoker.Cli, itx.Hash)
 	return nil
 }
 
@@ -995,6 +1178,47 @@ func RegisterBSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	return true
 }
 
+func RegisterHeco(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.HecoURL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(21)
+	extra := heco.ExtraInfo{
+		ChainID: chainID,
+		Period:  3,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.HecoEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterHeco, failed to decode eccd '%s' : %v", config.DefConfig.HecoEccd, err))
+	}
+
+	fmt.Println("config.DefConfig.HecoChainID: ", config.DefConfig.HecoChainID, "extraBytes: ", string(extraBytes), "HecoEccd: ", config.DefConfig.HecoEccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.HecoChainID, utils.HECO_ROUTER, "heco",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("heco chain %d already registered", config.DefConfig.HecoChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("heco chain %d already requested", config.DefConfig.HecoChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterHeco failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register heco chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
 func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.OntChainID, 3, "ont",
 		1, []byte{}, acc)
@@ -1055,6 +1279,23 @@ func UpdateEth(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	}
 	if err = updateSideChain(poly, acc, config.DefConfig.EthChainID, 2, blkToWait, "eth", eccd); err != nil {
 		log.Errorf("failed to update eth: %v", err)
+		return false
+	}
+	return true
+}
+
+func UpdateHeco(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(21)
+	if config.BtcNet.Name == "testnet3" {
+		blkToWait = 12
+	}
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.HecoEccd, "0x", "", 1))
+	if err != nil {
+		log.Errorf("failed to decode eccd: %v", err)
+		return false
+	}
+	if err = updateSideChain(poly, acc, config.DefConfig.HecoChainID, utils.HECO_ROUTER, blkToWait, "heco", eccd); err != nil {
+		log.Errorf("failed to update heco: %v", err)
 		return false
 	}
 	return true
@@ -1379,7 +1620,23 @@ func GetSideChain(poly *poly_go_sdk.PolySdk, id uint64) {
 	if err != nil {
 		panic(err)
 	}
-	log.Infof("side chain %d, name: %s, addr: %s", id, sideChain.Name, sideChain.Address.ToBase58())
+	switch sideChain.ChainId {
+	case config.DefConfig.HecoChainID:
+		type HecoExtra struct {
+			ChainID *big.Int // chainId of heco chain, testnet: 256, mainnet: 128
+			Period  uint64
+		}
+		hecoExtra := new(HecoExtra)
+		if err := json.Unmarshal(sideChain.ExtraInfo, hecoExtra); err != nil {
+			log.Errorf("heco unmarshal ExtraInfo err: %v", err)
+			return
+		}
+		log.Infof("side chain: {chainId: %d, name: %s, router: %d, waitBlock: %d, eccd: %x, addr: %s, extra.ChainID: %s, extra.Period: %d}", sideChain.ChainId, sideChain.Name, sideChain.Router, sideChain.BlocksToWait, sideChain.CCMCAddress, sideChain.Address.ToBase58(),
+			hecoExtra.ChainID.String(), hecoExtra.Period)
+	default:
+		log.Infof("side chain %d, name: %s, addr: %s", id, sideChain.Name, sideChain.Address.ToBase58())
+	}
+
 }
 
 func UpdatePolyConfig(poly *poly_go_sdk.PolySdk, blockMsgDelay, hashMsgDelay, peerHandshakeTimeout,

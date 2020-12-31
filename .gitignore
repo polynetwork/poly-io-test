@@ -5,6 +5,7 @@
 .vscode
 report/*
 config-*.json
+config_*.json
 test.go
 fisco_sdk.toml
 *.yaml

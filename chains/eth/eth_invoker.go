@@ -62,7 +62,11 @@ func NewEInvoker(chainID uint64) *EInvoker {
 	instance.TConfiguration = config.DefConfig
 	instance.ETHUtil = NewEthTools(instance.url())
 	instance.NM = NewNonceManager(instance.ETHUtil.GetEthClient())
-	instance.EthTestSigner, _ = NewEthSigner(instance.privateKey())
+	var err error
+	instance.EthTestSigner, err = NewEthSigner(instance.privateKey())
+	if err != nil {
+		panic(fmt.Errorf("NewEInvoker, NewEthSigner load privateKey err: %v", err))
+	}
 	instance.PrivateKey = instance.EthTestSigner.PrivateKey
 	return instance
 }
@@ -73,6 +77,8 @@ func (ethInvoker *EInvoker) url() string {
 		return ethInvoker.TConfiguration.BSCURL
 	case ethInvoker.TConfiguration.EthChainID:
 		return ethInvoker.TConfiguration.EthURL
+	case ethInvoker.TConfiguration.HecoChainID:
+		return ethInvoker.TConfiguration.HecoURL
 	default:
 		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
 	}
@@ -84,6 +90,8 @@ func (ethInvoker *EInvoker) privateKey() string {
 		return ethInvoker.TConfiguration.BSCPrivateKey
 	case ethInvoker.TConfiguration.EthChainID:
 		return ethInvoker.TConfiguration.ETHPrivateKey
+	case ethInvoker.TConfiguration.HecoChainID:
+		return ethInvoker.TConfiguration.HecoPrivateKey
 	default:
 		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
 	}
@@ -215,6 +223,8 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 			return nil, err
 		}
 		toAddr = other[:]
+	} else if toChainId == config.DefConfig.HecoChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	}
 	tx, err := contract.BindAssetHash(auth, ethComm.HexToAddress(fromAssetHash),
 		uint64(toChainId), toAddr[:])

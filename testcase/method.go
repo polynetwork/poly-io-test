@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/polynetwork/poly-io-test/chains/heco"
 	"math"
 	"math/big"
 	"strings"
@@ -1238,6 +1239,524 @@ func SendEthCrossOnt(ctx *testframework.TestFrameworkContext, status *testframew
 	return nil
 }
 
+func SendHtFromHecoToEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.HecoInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, get suggest gas price failed error: %s", err.Error())
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(1))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, abi.JSON error:" + err.Error())
+	}
+
+	htAddrOnHeco := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txData, err := contractabi.Pack("lock", htAddrOnHeco, uint64(config.DefConfig.EthChainID), ctx.EthInvoker.EthTestSigner.Address[:], /* receiver is eth invoker */
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, contractabi.Pack error:" + err.Error())
+	}
+
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.HecoLockProxy)
+	callMsg := ethereum.CallMsg{
+		From: ctx.HecoInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(amount)), Data: txData,
+	}
+	gasLimit, err := ctx.HecoInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.HecoInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.HecoInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToEth, send transaction error:%s", err.Error())
+	}
+	//log.Infof("SendHtFromHecoToEth, signedTxHash = %s", signedtx.Hash().String())
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"HecoHTToEth", time.Now()})
+	WaitTransactionConfirm(ctx.HecoInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
+func SendHtFromEthToHeco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.EthInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, get suggest gas price failed error: %s", err.Error())
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, abi.JSON error:" + err.Error())
+	}
+
+	htAddrOnEth := ethcommon.HexToAddress(config.DefConfig.EthHt)
+	lockProxyAddrOnEth := ethcommon.HexToAddress(config.DefConfig.EthLockProxy)
+	// check allowance
+	htOnEthContract, err := ontx_abi.NewONTX(htAddrOnEth, ctx.EthInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, NewONTX error:" + err.Error())
+	}
+	nonce := ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
+	auth := MakeEthAuth(ctx.EthInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, failed to get eth auth: %v", err)
+	}
+	all, err := htOnEthContract.Allowance(nil, ctx.EthInvoker.EthTestSigner.Address, lockProxyAddrOnEth)
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, failed to get allowance(owner=%s, spender=%s)", ctx.EthInvoker.EthTestSigner.Address.String(), lockProxyAddrOnEth.String())
+	}
+	// approve once for all
+	var approved bool
+	if all.Cmp(big.NewInt(0)) == 0 {
+		bigNum, _ := new(big.Int).SetString("100000000000000000000000000000000000000000000000", 10)
+		txhash, err := htOnEthContract.Approve(auth, lockProxyAddrOnEth, bigNum)
+		if err != nil {
+			return fmt.Errorf("SendHtFromEthToHeco, approve error: %v", err.Error())
+		}
+		ctx.EthInvoker.ETHUtil.WaitTransactionConfirm(txhash.Hash())
+		approved = true
+	}
+
+	txData, err := contractabi.Pack("lock", htAddrOnEth, uint64(config.DefConfig.HecoChainID), ctx.HecoInvoker.EthTestSigner.Address[:], /* receiver is heco invoker */
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, contractabi.Pack error:" + err.Error())
+	}
+
+	callMsg := ethereum.CallMsg{
+		From: ctx.EthInvoker.EthTestSigner.Address, To: &lockProxyAddrOnEth, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(0)), Data: txData,
+	}
+	gasLimit, err := ctx.EthInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, estimate gas limit error: %s", err.Error())
+	}
+
+	if approved {
+		nonce = ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
+	}
+	//log.Infof("sender: %s, nonce: %d", ctx.EthInvoker.EthTestSigner.Address.String(), nonce)
+	tx := types.NewTransaction(nonce, lockProxyAddrOnEth, big.NewInt(int64(0)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.EthInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.EthInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendHtFromEthToHeco, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"EthHTToHeco", time.Now()})
+	log.Infof("SendHtFromEthToHeco, signedTxHash = %s, acct: %s, nonce: %d", signedtx.Hash().String(), ctx.EthInvoker.EthTestSigner.Address.String(), nonce)
+	WaitTransactionConfirm(ctx.EthInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
+func SendEtherFromEthToHeco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.EthInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendEtherFromEthToHeco, get suggest gas price failed error: %s", err.Error())
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	nonce := ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
+	auth := MakeEthAuthWithValue(ctx.EthInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit), amount)
+
+	ethLockAddr := ethcommon.HexToAddress(config.DefConfig.EthLockProxy)
+	ethLockProxy, err := lock_proxy_abi.NewLockProxy(ethLockAddr, ctx.EthInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendEtherFromEthToHeco, NewLockProxy error:" + err.Error())
+	}
+	etherAddrOnEth := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txHash, err := ethLockProxy.Lock(auth, etherAddrOnEth, ctx.HecoInvoker.ChainID, ctx.HecoInvoker.EthTestSigner.Address.Bytes(), big.NewInt(int64(amount)))
+
+	if err != nil {
+		return fmt.Errorf("SendEtherFromEthToHeco, send transaction error:%s", err.Error())
+	}
+
+	status.AddTx(txHash.Hash().String()[2:], &testframework.TxInfo{"EthEtherToHeco", time.Now()})
+	WaitTransactionConfirm(ctx.EthInvoker.ETHUtil.GetEthClient(), txHash.Hash())
+	return nil
+}
+
+func SendEtherFromHecoToEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.HecoInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendEtherFromHecoToEth, get suggest gas price failed error: %s", err.Error())
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(1))
+
+	nonce := ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+	auth := MakeEthAuth(ctx.HecoInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(heco.DefaultGasLimit))
+
+	hecoLockAddr := ethcommon.HexToAddress(config.DefConfig.HecoLockProxy)
+	etherAddrOnHeco := ethcommon.HexToAddress(config.DefConfig.HecoEth)
+
+	etherOnHecoContract, err := ontx_abi.NewONTX(etherAddrOnHeco, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendEtherFromHecoToEth, NewONTX error:" + err.Error())
+	}
+	// check allowance
+	all, err := etherOnHecoContract.Allowance(nil, ctx.HecoInvoker.EthTestSigner.Address, hecoLockAddr)
+	if err != nil {
+		return fmt.Errorf("SendEtherFromHecoToEth, failed to get allowance(owner=%s, spender=%s)", ctx.HecoInvoker.EthTestSigner.Address.String(), hecoLockAddr.String())
+	}
+	// approve once for all
+	if all.Cmp(big.NewInt(0)) == 0 {
+		bigNum, _ := new(big.Int).SetString("100000000000000000000000000000000000000000000000", 10)
+		txhash, err := etherOnHecoContract.Approve(auth, hecoLockAddr, bigNum)
+		if err != nil {
+			return fmt.Errorf("SendEtherFromHecoToEth, approve error: %v", err.Error())
+		}
+		ctx.HecoInvoker.ETHUtil.WaitTransactionConfirm(txhash.Hash())
+		nonce = ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+		auth.Nonce = big.NewInt(int64(nonce))
+	}
+
+	hecoLockProxy, err := lock_proxy_abi.NewLockProxy(hecoLockAddr, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendEtherFromHecoToEth, NewLockProxy error:" + err.Error())
+	}
+	txHash, err := hecoLockProxy.Lock(auth, etherAddrOnHeco, ctx.EthInvoker.ChainID, ctx.EthInvoker.EthTestSigner.Address.Bytes(), big.NewInt(int64(amount)))
+
+	if err != nil {
+		return fmt.Errorf("SendEtherFromHecoToEth, send transaction error:%s", err.Error())
+	}
+
+	status.AddTx(txHash.Hash().String()[2:], &testframework.TxInfo{"HecoEtherToEth", time.Now()})
+	WaitTransactionConfirm(ctx.HecoInvoker.ETHUtil.GetEthClient(), txHash.Hash())
+	return nil
+}
+
+func SendErc20FromEthToHeco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.EthInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, get suggest gas price failed error: %s", err.Error())
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
+
+	nonce := ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
+	auth := MakeEthAuth(ctx.EthInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
+
+	ethLockAddr := ethcommon.HexToAddress(config.DefConfig.EthLockProxy)
+	erc20AddrOnEth := ethcommon.HexToAddress(config.DefConfig.EthErc20)
+
+	erc20OnEthContract, err := ontx_abi.NewONTX(erc20AddrOnEth, ctx.EthInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, NewONTX error:" + err.Error())
+	}
+	// check allowance
+	all, err := erc20OnEthContract.Allowance(nil, ctx.EthInvoker.EthTestSigner.Address, ethLockAddr)
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, failed to get allowance(owner=%s, spender=%s), err: %v", ctx.EthInvoker.EthTestSigner.Address.String(), ethLockAddr.String(), err)
+	}
+	// approve once for all
+	if all.Cmp(big.NewInt(0)) == 0 {
+		bigNum, _ := new(big.Int).SetString("100000000000000000000000000000000000000000000000", 10)
+		txhash, err := erc20OnEthContract.Approve(auth, ethLockAddr, bigNum)
+		if err != nil {
+			return fmt.Errorf("SendErc20FromEthToHeco, approve error: %v", err.Error())
+		}
+		ctx.EthInvoker.ETHUtil.WaitTransactionConfirm(txhash.Hash())
+		nonce = ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
+		auth.Nonce = big.NewInt(int64(nonce))
+	}
+
+	ethLockProxy, err := lock_proxy_abi.NewLockProxy(ethLockAddr, ctx.EthInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, NewLockProxy error:" + err.Error())
+	}
+	txHash, err := ethLockProxy.Lock(auth, erc20AddrOnEth, ctx.HecoInvoker.ChainID, ctx.HecoInvoker.EthTestSigner.Address.Bytes(), big.NewInt(int64(amount)))
+
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, send transaction error:%s", err.Error())
+	}
+
+	status.AddTx(txHash.Hash().String()[2:], &testframework.TxInfo{"EthErc20ToHeco", time.Now()})
+	WaitTransactionConfirm(ctx.EthInvoker.ETHUtil.GetEthClient(), txHash.Hash())
+	return nil
+}
+
+func SendErc20FromHecoToEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.HecoInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, get suggest gas price failed error: %s", err.Error())
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
+
+	nonce := ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+	auth := MakeEthAuth(ctx.HecoInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(heco.DefaultGasLimit))
+
+	hecoLockAddr := ethcommon.HexToAddress(config.DefConfig.HecoLockProxy)
+	erc20AddrOnHeco := ethcommon.HexToAddress(config.DefConfig.HecoErc20)
+
+	erc20OnHecoContract, err := ontx_abi.NewONTX(erc20AddrOnHeco, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, NewONTX error:" + err.Error())
+	}
+	// check allowance
+	all, err := erc20OnHecoContract.Allowance(nil, ctx.HecoInvoker.EthTestSigner.Address, hecoLockAddr)
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, failed to get allowance(owner=%s, spender=%s)", ctx.HecoInvoker.EthTestSigner.Address.String(), hecoLockAddr.String())
+	}
+	// approve once for all
+	if all.Cmp(big.NewInt(0)) == 0 {
+		bigNum, _ := new(big.Int).SetString("100000000000000000000000000000000000000000000000", 10)
+		txhash, err := erc20OnHecoContract.Approve(auth, hecoLockAddr, bigNum)
+		if err != nil {
+			return fmt.Errorf("SendErc20FromEthToHeco, approve error: %v", err.Error())
+		}
+		ctx.HecoInvoker.ETHUtil.WaitTransactionConfirm(txhash.Hash())
+		nonce = ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+		auth.Nonce = big.NewInt(int64(nonce))
+	}
+
+	hecoLockProxy, err := lock_proxy_abi.NewLockProxy(hecoLockAddr, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, NewLockProxy error:" + err.Error())
+	}
+	txHash, err := hecoLockProxy.Lock(auth, erc20AddrOnHeco, ctx.EthInvoker.ChainID, ctx.EthInvoker.EthTestSigner.Address.Bytes(), big.NewInt(int64(amount)))
+
+	if err != nil {
+		return fmt.Errorf("SendErc20FromEthToHeco, send transaction error:%s", err.Error())
+	}
+
+	status.AddTx(txHash.Hash().String()[2:], &testframework.TxInfo{"HecoErc20ToEth", time.Now()})
+	WaitTransactionConfirm(ctx.HecoInvoker.ETHUtil.GetEthClient(), txHash.Hash())
+	return nil
+}
+
+func SendHtFromHecoToNeo(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.HecoInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToNeo, get suggest gas price failed error: %s", err.Error())
+	}
+
+	nonce := ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+	auth := MakeEthAuthWithValue(ctx.HecoInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit), amount)
+
+	hecoLockAddr := ethcommon.HexToAddress(config.DefConfig.HecoLockProxy)
+	neoReceiver, err := neo.ParseNeoAddr(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToNeo, ParseNeoAddr, NeoInvoker.Acc: %s, err: %s", ctx.NeoInvoker.Acc.Address, err)
+	}
+
+	hecoLockProxy, err := lock_proxy_abi.NewLockProxy(hecoLockAddr, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToNeo, NewLockProxy error:" + err.Error())
+	}
+	htAddrOnHeco := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txHash, err := hecoLockProxy.Lock(auth, htAddrOnHeco, config.DefConfig.NeoChainID, neoReceiver, big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToNeo, send transaction error:%s", err.Error())
+	}
+
+	status.AddTx(txHash.Hash().String()[2:], &testframework.TxInfo{"HecoHtToNeo", time.Now()})
+	WaitTransactionConfirm(ctx.HecoInvoker.ETHUtil.GetEthClient(), txHash.Hash())
+	return nil
+}
+
+func SendHtFromNeoToHeco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+
+	neoLockAddr, err := neo.ParseNeoAddr(config.DefConfig.NeoLockProxy)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToNeo, ParseNeoAddr neoLockProxy: %s,  err: %v", config.DefConfig.NeoLockProxy, err)
+	}
+	htAddrOnNeo, err := neo.ParseNeoAddr(config.DefConfig.NeoHt)
+	if err != nil {
+		return fmt.Errorf("SendHtFromHecoToNeo, ParseNeoAddr neoLockProxy: %s,  err: %v", config.DefConfig.NeoLockProxy, err)
+	}
+
+	fromAsset := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: htAddrOnNeo,
+	}
+	rawFrom, err := helper.AddressToScriptHash(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return fmt.Errorf("SendHtFromNeoToHeco, AddressToScriptHash: %s, err: %v", ctx.NeoInvoker.Acc.Address, err)
+	}
+	fromAddr := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: rawFrom.Bytes(),
+	}
+	toChainId := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(config.DefConfig.HecoChainID)),
+	}
+	//hecoOnHtReceiver := ethcommon.HexToAddress("0x340Aa2640b79022c3CAfFa1E0eF8D77028572d8d").Bytes()
+	hecoOnHtReceiver := ctx.HecoInvoker.EthTestSigner.Address.Bytes()
+	toAddr := sc.ContractParameter{
+		Type: sc.ByteArray,
+		//Value: ctx.HecoInvoker.EthTestSigner.Address.Bytes(),
+		Value: hecoOnHtReceiver,
+	}
+	amt := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(amount)),
+	}
+	tb := tx.NewTransactionBuilder(config.DefConfig.NeoUrl)
+	sb := sc.NewScriptBuilder()
+	sb.MakeInvocationScript(neoLockAddr, "lock", []sc.ContractParameter{fromAsset, fromAddr, toChainId, toAddr, amt})
+	script := sb.ToArray()
+
+	itx, err := tb.MakeInvocationTransaction(script, rawFrom, nil, rawFrom, helper.Zero, helper.Zero)
+	if err != nil {
+		return fmt.Errorf("SendHtFromNeoToHeco, MakeInvocationTransaction err: %v", err)
+	}
+	err = tx.AddSignature(itx, ctx.NeoInvoker.Acc.KeyPair)
+	if err != nil {
+		return fmt.Errorf("SendHtFromNeoToHeco, AddSignature err: %v", err)
+	}
+	response := tb.Client.SendRawTransaction(itx.RawTransactionString())
+	if response.HasError() {
+		return fmt.Errorf("SendHtFromNeoToHeco, SendRawTransaction err: %v", response.ErrorResponse.Error.Message)
+	}
+	_ = itx.HashString()
+
+	status.AddTx(hex.EncodeToString(itx.Hash.Bytes()), &testframework.TxInfo{"NeoHtToHeco", time.Now()})
+	neo.WaitNeoTx(ctx.NeoInvoker.Cli, itx.Hash)
+
+	log.Infof("successful to send %d Ht from neo to heco", amount)
+	return nil
+}
+
+func SendHrc20FromHecoToNeo(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.HecoInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromHecoToNeo, get suggest gas price failed error: %s", err.Error())
+	}
+
+	nonce := ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+	auth := MakeEthAuth(ctx.HecoInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
+
+	hecoLockAddr := ethcommon.HexToAddress(config.DefConfig.HecoLockProxy)
+	hrc20AddrOnHeco := ethcommon.HexToAddress(config.DefConfig.HecoHrc20)
+
+	hrc20OnHecoContract, err := ontx_abi.NewONTX(hrc20AddrOnHeco, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromHecoToNeo, NewONTX error:" + err.Error())
+	}
+	// check allowance
+	all, err := hrc20OnHecoContract.Allowance(nil, ctx.HecoInvoker.EthTestSigner.Address, hecoLockAddr)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromHecoToNeo, failed to get allowance(owner=%s, spender=%s), err: %v", ctx.HecoInvoker.EthTestSigner.Address.String(), hecoLockAddr.String(), err)
+	}
+	// approve once for all
+	if all.Cmp(big.NewInt(0)) == 0 {
+		bigNum, _ := new(big.Int).SetString("100000000000000000000000000000000000000000000000", 10)
+		txhash, err := hrc20OnHecoContract.Approve(auth, hecoLockAddr, bigNum)
+		if err != nil {
+			return fmt.Errorf("SendHrc20FromHecoToNeo, approve error: %v", err.Error())
+		}
+		ctx.HecoInvoker.ETHUtil.WaitTransactionConfirm(txhash.Hash())
+		nonce = ctx.HecoInvoker.NM.GetAddressNonce(ctx.HecoInvoker.EthTestSigner.Address)
+		auth.Nonce = big.NewInt(int64(nonce))
+	}
+
+	ethLockProxy, err := lock_proxy_abi.NewLockProxy(hecoLockAddr, ctx.HecoInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromHecoToNeo, NewLockProxy error:" + err.Error())
+	}
+	neoReceiverAddr, err := neo.ParseNeoAddr(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromHecoToNeo, ParseNeoAddr neoLockProxy: %s,  err: %v", config.DefConfig.NeoLockProxy, err)
+	}
+	txHash, err := ethLockProxy.Lock(auth, hrc20AddrOnHeco, config.DefConfig.NeoChainID, neoReceiverAddr, big.NewInt(int64(amount)))
+
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromHecoToNeo, send transaction error:%s", err.Error())
+	}
+
+	status.AddTx(txHash.Hash().String()[2:], &testframework.TxInfo{"HecoHrc20ToNeo", time.Now()})
+	WaitTransactionConfirm(ctx.HecoInvoker.ETHUtil.GetEthClient(), txHash.Hash())
+	return nil
+}
+
+func SendHrc20FromNeoToHeco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+
+	neoLockAddr, err := neo.ParseNeoAddr(config.DefConfig.NeoLockProxy)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromNeoToHeco, ParseNeoAddr neoLockProxy: %s,  err: %v", config.DefConfig.NeoLockProxy, err)
+	}
+	hrc20AddrOnNeo, err := neo.ParseNeoAddr(config.DefConfig.NeoHrc20)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromNeoToHeco, ParseNeoAddr neoLockProxy: %s,  err: %v", config.DefConfig.NeoLockProxy, err)
+	}
+
+	fromAsset := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: hrc20AddrOnNeo,
+	}
+	rawFrom, err := helper.AddressToScriptHash(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromNeoToHeco, AddressToScriptHash: %s, err: %v", ctx.NeoInvoker.Acc.Address, err)
+	}
+	fromAddr := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: rawFrom.Bytes(),
+	}
+	toChainId := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(config.DefConfig.HecoChainID)),
+	}
+	toAddr := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: ctx.HecoInvoker.EthTestSigner.Address.Bytes(),
+	}
+	amt := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(amount)),
+	}
+	tb := tx.NewTransactionBuilder(config.DefConfig.NeoUrl)
+	sb := sc.NewScriptBuilder()
+	sb.MakeInvocationScript(neoLockAddr, "lock", []sc.ContractParameter{fromAsset, fromAddr, toChainId, toAddr, amt})
+	script := sb.ToArray()
+
+	itx, err := tb.MakeInvocationTransaction(script, rawFrom, nil, rawFrom, helper.Zero, helper.Zero)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromNeoToHeco, MakeInvocationTransaction err: %v", err)
+	}
+	err = tx.AddSignature(itx, ctx.NeoInvoker.Acc.KeyPair)
+	if err != nil {
+		return fmt.Errorf("SendHrc20FromNeoToHeco, AddSignature err: %v", err)
+	}
+	response := tb.Client.SendRawTransaction(itx.RawTransactionString())
+	if response.HasError() {
+		return fmt.Errorf("SendHrc20FromNeoToHeco, SendRawTransaction err: %v", response.ErrorResponse.Error.Message)
+	}
+	_ = itx.HashString()
+
+	status.AddTx(hex.EncodeToString(itx.Hash.Bytes()), &testframework.TxInfo{"NeoHrc20ToHeco", time.Now()})
+	neo.WaitNeoTx(ctx.NeoInvoker.Cli, itx.Hash)
+
+	log.Infof("successful to send %d hrc20 from neo to heco", amount)
+	return nil
+}
+
 func SendEthoCrossEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, etho string, amount uint64) error {
 	proxyContractAddress, err := ontcommon.AddressFromHexString(config.DefConfig.OntLockProxy)
 	if err != nil {
@@ -1818,7 +2337,7 @@ func SendNeoCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -1878,7 +2397,7 @@ func SendNeoCrossOnt(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -2088,7 +2607,7 @@ func SendNOntCrossOnt(ctx *testframework.TestFrameworkContext, status *testframe
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -2385,7 +2904,7 @@ func SendNEthCrossEth(ctx *testframework.TestFrameworkContext, status *testframe
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -2691,7 +3210,7 @@ func SendNOntdCrossOnt(ctx *testframework.TestFrameworkContext, status *testfram
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -2753,7 +3272,7 @@ func SendNOntdCrossEth(ctx *testframework.TestFrameworkContext, status *testfram
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}

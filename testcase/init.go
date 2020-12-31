@@ -87,4 +87,11 @@ func init() {
 	testframework.TFramework.RegTestCase("BnbToEthOnce", BnbToEthOnce)
 	testframework.TFramework.RegTestCase("RenBTCCircle", RenBTCCircle)
 	testframework.TFramework.RegTestCase("EOntdToNeoAndBack", EOntdToNeoAndBack)
+
+	// huobi eco chain
+	testframework.TFramework.RegTestCase("SendHecoHtToEthAndBack", SendHecoHtToEthAndBack)
+	testframework.TFramework.RegTestCase("SendEthEtherToHecoAndBack", SendEthEtherToHecoAndBack)
+	testframework.TFramework.RegTestCase("SendErc20ToHecoAndBack", SendErc20ToHecoAndBack)
+	testframework.TFramework.RegTestCase("SendHecoHtToNeoAndBack", SendHecoHtToNeoAndBack)
+	testframework.TFramework.RegTestCase("SendHecoHrc20ToNeoAndBack", SendHecoHrc20ToNeoAndBack)
 }

@@ -62,8 +62,9 @@ func main() {
 	}
 
 	var (
-		ethInvoker *eth.EInvoker
-		bscInvoker *eth.EInvoker
+		ethInvoker  *eth.EInvoker
+		bscInvoker  *eth.EInvoker
+		hecoInvoker *eth.EInvoker
 	)
 	if config.DefConfig.EthChainID > 0 {
 		ethInvoker = eth.NewEInvoker(config.DefConfig.EthChainID)
@@ -71,6 +72,10 @@ func main() {
 
 	if config.DefConfig.BscChainID > 0 {
 		bscInvoker = eth.NewEInvoker(config.DefConfig.BscChainID)
+	}
+
+	if config.DefConfig.HecoChainID > 0 {
+		hecoInvoker = eth.NewEInvoker(config.DefConfig.HecoChainID)
 	}
 
 	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
@@ -104,6 +109,11 @@ func main() {
 	if bscInvoker != nil {
 		testframework.TFramework.SetBSCInvoker(bscInvoker)
 	}
+
+	if hecoInvoker != nil {
+		testframework.TFramework.SetHecoInvoker(hecoInvoker)
+	}
+
 	//testframework.TFramework.SetBtcInvoker(btcInvoker)
 	testframework.TFramework.SetOntInvoker(ontInvoker)
 	testframework.TFramework.SetCosmosInvoker(cmInvoker)

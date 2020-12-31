@@ -1329,3 +1329,138 @@ func RenBTCCircle(ctx *testframework.TestFrameworkContext, status *testframework
 	status.SetItSuccess(1)
 	return true
 }
+
+func SendHecoHtToEthAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for n := uint64(0); n < config.DefConfig.BatchTxNum; n++ {
+		amtArr := make([]uint64, config.DefConfig.TxNumPerBatch)
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			amtArr[i] = GetRandAmount(config.DefConfig.EthValLimit, 1)
+			if err := SendHtFromHecoToEth(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendHecoHtToEthAndBack, SendHtFromHecoToEth failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Info("heco_ht -> eth_ht all received, next send them back")
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			if err := SendHtFromEthToHeco(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendHecoHtToEthAndBack, SendHtFromEthToHeco failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Infof("ht from heco to eth, then back to heco all received ( batch: %d )", n)
+	}
+	status.SetItSuccess(1)
+	return true
+}
+
+func SendEthEtherToHecoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for n := uint64(0); n < config.DefConfig.BatchTxNum; n++ {
+		amtArr := make([]uint64, config.DefConfig.TxNumPerBatch)
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			amtArr[i] = GetRandAmount(config.DefConfig.EthValLimit, 1)
+			if err := SendEtherFromEthToHeco(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendEthEtherToHecoAndBack, SendEtherFromEthToHeco failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Info("eth_ether -> heco_ether all received, next send them back")
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			if err := SendEtherFromHecoToEth(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendEthEtherToHecoAndBack, SendEtherFromHecoToEth failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Infof("ether from eth to heco, then back to eth all received ( batch: %d )", n)
+	}
+	status.SetItSuccess(1)
+	return true
+}
+
+func SendErc20ToHecoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for n := uint64(0); n < config.DefConfig.BatchTxNum; n++ {
+		amtArr := make([]uint64, config.DefConfig.TxNumPerBatch)
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			amtArr[i] = GetRandAmount(config.DefConfig.EthValLimit, 1)
+			if err := SendErc20FromEthToHeco(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendErc20ToHecoAndBack, SendErc20FromEthToHeco failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Info("eth_erc20 -> heco_erc20 all received, next send them back")
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			if err := SendErc20FromHecoToEth(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendErc20ToHecoAndBack, SendErc20FromHecoToEth failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Infof("erc20 from eth to heco, then back to eth all received ( batch: %d )", n)
+	}
+	status.SetItSuccess(1)
+	return true
+}
+
+func SendHecoHtToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for n := uint64(0); n < config.DefConfig.BatchTxNum; n++ {
+		amtArr := make([]uint64, config.DefConfig.TxNumPerBatch)
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			amtArr[i] = GetRandAmount(config.DefConfig.EthValLimit, 1)
+			if err := SendHtFromHecoToNeo(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendHecoHtToNeoAndBack, SendHtFromHecoToNeo failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Info("heco_ht -> neo_ht all received, next send them back")
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			if err := SendHtFromNeoToHeco(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendHecoHtToNeoAndBack, SendHtFromNeoToHeco failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Infof("ht from heco to neo, then back to heco all received ( batch: %d )", n)
+	}
+	status.SetItSuccess(1)
+	return true
+}
+
+func SendHecoHrc20ToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for n := uint64(0); n < config.DefConfig.BatchTxNum; n++ {
+		amtArr := make([]uint64, config.DefConfig.TxNumPerBatch)
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			amtArr[i] = GetRandAmount(config.DefConfig.EthValLimit, 1)
+			if err := SendHrc20FromHecoToNeo(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendHecoHrc20ToNeoAndBack, SendHrc20FromHecoToNeo failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Info("heco_hrc20 -> neo_hrc20 all received, next send them back")
+		for i := uint64(0); i < config.DefConfig.TxNumPerBatch; i++ {
+			if err := SendHrc20FromNeoToHeco(ctx, status, amtArr[i]); err != nil {
+				log.Errorf("SendHecoHrc20ToNeoAndBack, SendHecoHrc20FromNeoToHeco failed: %v", err)
+				return false
+			}
+		}
+
+		WaitUntilClean(status)
+		log.Infof("hrc20 from heco to neo, then back to heco all received ( batch: %d )", n)
+	}
+	status.SetItSuccess(1)
+	return true
+}

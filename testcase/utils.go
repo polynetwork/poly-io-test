@@ -49,6 +49,7 @@ func WaitTransactionConfirm(ethclient *ethclient.Client, hash ethcommon.Hash) {
 	for errNum < 100 {
 		time.Sleep(time.Second * 1)
 		_, ispending, err := ethclient.TransactionByHash(context.Background(), hash)
+		log.Infof("hash: %s, isPending: %t", hash.String(), ispending)
 		if err != nil {
 			errNum++
 			continue
@@ -99,6 +100,12 @@ func MakeEthAuth(signer *eth.EthSigner, nonce, gasPrice, gasLimit uint64) *bind.
 	auth.GasLimit = gasLimit          // in units
 	auth.GasPrice = big.NewInt(int64(gasPrice))
 
+	return auth
+}
+
+func MakeEthAuthWithValue(signer *eth.EthSigner, nonce, gasPrice, gasLimit, value uint64) *bind.TransactOpts {
+	auth := MakeEthAuth(signer, nonce, gasPrice, gasLimit)
+	auth.Value = big.NewInt(int64(value))
 	return auth
 }
 
