@@ -37,6 +37,6 @@ require (
 )
 
 replace (
-    github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20201221040156-46fc849f576f
-    github.com/go-kit/kit v0.10.0 => github.com/go-kit/kit v0.8.0
+	github.com/go-kit/kit v0.10.0 => github.com/go-kit/kit v0.8.0
+	github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20210118060440-a0c11940f74c
 )

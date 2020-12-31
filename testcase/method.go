@@ -2926,6 +2926,46 @@ func SendFiscoEthCrossEthereum(ctx *testframework.TestFrameworkContext, status *
 	return nil
 }
 
+func SendFiscoEthCrossFisco(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	pEthAddr := ethcommon.HexToAddress(config.DefConfig.FiscoEth)
+	pEth, err := fiscox_abi.NewFISCOX(pEthAddr, ctx.FiscoInvoker.FiscoSdk)
+	if err != nil {
+		return err
+	}
+	lpAddr := ethcommon.HexToAddress(config.DefConfig.FiscoLockProxy)
+	lp, err := lock_proxy_abi2.NewLockProxy(lpAddr, ctx.FiscoInvoker.FiscoSdk)
+	if err != nil {
+		return err
+	}
+	bal, _ := pEth.BalanceOf(ctx.FiscoInvoker.FiscoSdk.GetCallOpts(), ctx.FiscoInvoker.MakeSmartContractAuth().From)
+	fmt.Println(bal.String())
+	val, err := pEth.Allowance(ctx.FiscoInvoker.FiscoSdk.GetCallOpts(), ctx.FiscoInvoker.MakeSmartContractAuth().From, lpAddr)
+	if err != nil {
+		return err
+	}
+	if val.Uint64() < amount {
+		txn, err := pEth.Approve(ctx.FiscoInvoker.FiscoSdk.GetTransactOpts(), lpAddr, big.NewInt(math.MaxInt64))
+		if err != nil {
+			return err
+		}
+		isSuccess := ctx.FiscoInvoker.WaitTransactionConfirm(txn.Hash())
+		if !isSuccess {
+			return fmt.Errorf("failed to approve")
+		}
+	}
+	txn, err := lp.Lock(ctx.FiscoInvoker.FiscoSdk.GetTransactOpts(), pEthAddr, config.DefConfig.FiscoChainID,
+		ctx.FiscoInvoker.MakeSmartContractAuth().From.Bytes(), big.NewInt(int64(amount)))
+	if err != nil {
+		return err
+	}
+	status.AddTx(txn.Hash().String()[2:], &testframework.TxInfo{"FiscoEthToFisco", time.Now()})
+	isSuccess := ctx.FiscoInvoker.WaitTransactionConfirm(txn.Hash())
+	if !isSuccess {
+		return fmt.Errorf("failed to lock")
+	}
+	return nil
+}
+
 func SendFiscoEthCrossFabric(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
 	pEthAddr := ethcommon.HexToAddress(config.DefConfig.FiscoEth)
 	pEth, err := fiscox_abi.NewFISCOX(pEthAddr, ctx.FiscoInvoker.FiscoSdk)

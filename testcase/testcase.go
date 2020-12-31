@@ -1382,3 +1382,20 @@ func EthCircleBetweenEthereumFabricFisco(ctx *testframework.TestFrameworkContext
 	status.SetItSuccess(1)
 	return true
 }
+
+func FiscoCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(2, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendFiscoEthCrossFisco(ctx, status, 1); err != nil {
+				log.Errorf("FiscoCircle, SendFiscoEthCrossFisco error: %v", err)
+				return false
+			}
+		}
+		log.Infof("FiscoCircle, send %d eth to Fisco, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}

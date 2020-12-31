@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,12 +29,14 @@ var (
 	fnEth        string
 	configPath   string
 	eccmRedeploy int
+	op string
 )
 
 func init() {
 	flag.StringVar(&configPath, "conf", "./config.json", "Config of poly-io-test")
 	flag.StringVar(&fnEth, "func", "deploy", "choose function to run: deploy or setup")
 	flag.IntVar(&eccmRedeploy, "redeploy_eccm", 1, "redeploy eccd, eccm and eccmp or not")
+	flag.StringVar(&op, "op", "", "set your op address for ccm")
 	flag.Parse()
 }
 
@@ -64,26 +67,33 @@ func DeployFiscoSmartContract() {
 	}
 
 	if eccmRedeploy == 1 {
-		eccdAddr, _, err = invoker.DeployEthChainDataContract()
+		opAddr := common.HexToAddress(op)
+		fmt.Printf("your op address is %s\n", opAddr.String())
+		eccdAddr, _, err = invoker.DeployEthChainDataContract(opAddr)
 		if err != nil {
 			panic(err)
 		}
 
-		eccmAddr, _, err = invoker.DeployECCMContract(eccdAddr.Hex(), config.DefConfig.FiscoChainID)
+		eccmAddr, _, err = invoker.DeployECCMContract(eccdAddr.Hex(), config.DefConfig.FiscoChainID, opAddr)
 		if err != nil {
 			panic(err)
 		}
-		eccmpAddr, _, err = invoker.DeployECCMPContract(eccmAddr.Hex())
+		eccmpAddr, _, err = invoker.DeployECCMPContract(eccmAddr.Hex(), opAddr)
 		if err != nil {
 			panic(err)
 		}
-		_, err = invoker.TransferOwnershipForECCD(eccdAddr.Hex(), eccmAddr.Hex())
-		if err != nil {
-			panic(err)
-		}
-		_, err = invoker.TransferOwnershipForECCM(eccmAddr.Hex(), eccmpAddr.Hex())
-		if err != nil {
-			panic(err)
+		if bytes.Equal(invoker.FiscoSdk.GetTransactOpts().From.Bytes(), opAddr.Bytes()) {
+			_, err = invoker.TransferOwnershipForECCD(eccdAddr.Hex(), eccmAddr.Hex())
+			if err != nil {
+				panic(err)
+			}
+			_, err = invoker.TransferOwnershipForECCM(eccmAddr.Hex(), eccmpAddr.Hex())
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			fmt.Printf("TransferOwnership is not done for eccm and eccd, please use account %s to call it. \n",
+				opAddr.String())
 		}
 	} else {
 		eccdAddr = common.HexToAddress(config.DefConfig.FiscoCCDC)

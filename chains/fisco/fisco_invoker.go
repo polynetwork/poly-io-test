@@ -63,9 +63,9 @@ func NewFiscoInvoker() (*FiscoInvoker, error) {
 	return instance, nil
 }
 
-func (fisInvoker *FiscoInvoker) DeployEthChainDataContract() (common.Address, *eccd_abi.EthCrossChainData, error) {
+func (fisInvoker *FiscoInvoker) DeployEthChainDataContract(op common.Address) (common.Address, *eccd_abi.EthCrossChainData, error) {
 	contractAddress, tx, contract, err := eccd_abi.DeployEthCrossChainData(fisInvoker.FiscoSdk.GetTransactOpts(),
-		fisInvoker.FiscoSdk)
+		fisInvoker.FiscoSdk, op)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("DeployEthChainDataContract, err: %v", err)
 	}
@@ -73,11 +73,11 @@ func (fisInvoker *FiscoInvoker) DeployEthChainDataContract() (common.Address, *e
 	return contractAddress, contract, nil
 }
 
-func (fisInvoker *FiscoInvoker) DeployECCMContract(eccdAddress string, id uint64) (common.Address, *eccm_abi.EthCrossChainManager, error) {
+func (fisInvoker *FiscoInvoker) DeployECCMContract(eccdAddress string, id uint64, op common.Address) (common.Address, *eccm_abi.EthCrossChainManager, error) {
 
 	address := common.HexToAddress(eccdAddress)
 	contractAddress, tx, contract, err := eccm_abi.DeployEthCrossChainManager(fisInvoker.FiscoSdk.GetTransactOpts(),
-		fisInvoker.FiscoSdk, address, id)
+		fisInvoker.FiscoSdk, address, op, id)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}
@@ -86,11 +86,11 @@ func (fisInvoker *FiscoInvoker) DeployECCMContract(eccdAddress string, id uint64
 	return contractAddress, contract, nil
 }
 
-func (fisInvoker *FiscoInvoker) DeployECCMPContract(eccmAddress string) (common.Address, *eccmp_abi.EthCrossChainManagerProxy, error) {
+func (fisInvoker *FiscoInvoker) DeployECCMPContract(eccmAddress string, op common.Address) (common.Address, *eccmp_abi.EthCrossChainManagerProxy, error) {
 
 	address := common.HexToAddress(eccmAddress)
 	contractAddress, tx, contract, err := eccmp_abi.DeployEthCrossChainManagerProxy(fisInvoker.FiscoSdk.GetTransactOpts(),
-		fisInvoker.FiscoSdk, address)
+		fisInvoker.FiscoSdk, address, op)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("DeployECCMPContract, err: %v", err)
 	}
