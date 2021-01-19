@@ -1203,6 +1203,42 @@ func EthToNeoAndBack(ctx *testframework.TestFrameworkContext, status *testframew
 	return true
 }
 
+func EthToBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+
+	if err := SendEthCrossBsc(ctx, status, amt); err != nil {
+		log.Errorf("BnbToBsc, SendBnbCrossBsc error: %v", err)
+		return false
+	}
+
+	WaitUntilClean(status)
+
+	return true
+}
+
+func EthEthToBscAndBack(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		if err := SendEthCrossBsc(ctx, status, amt); err != nil {
+			log.Errorf("EthEthToBscAndBack, SendEthCrossBsc error: %v", err)
+			return false
+		}
+		log.Infof("EthEthToBscAndBack, send %d eth to Bsc, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		if err := SendBscEthCrossEth(ctx, status, amt); err != nil {
+			log.Errorf("EthEthToBscAndBack, SendBscEthCrossEth error: %v", err)
+			return false
+		}
+		WaitUntilClean(status)
+		log.Infof("EthEthToBscAndBack, eth all received ( batch: %d )", i)
+		break
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
 func BnbToBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
 	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
 		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)

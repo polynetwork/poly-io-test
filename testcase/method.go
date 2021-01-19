@@ -2271,6 +2271,133 @@ func SendBnbCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 	return nil
 }
 
+func SendBscEthCrossEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.BscInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, get suggest gas price failed error: %s", err.Error())
+	}
+	//gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, abi.JSON error:" + err.Error())
+	}
+	rawFrom := ctx.EthInvoker.EthTestSigner.Address.Bytes()
+	assetaddress := ethcommon.HexToAddress("0xb9478391eec218defa96f7b9a7938cf44e7a2fd5")
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.EthChainID), rawFrom[:],
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, contractabi.Pack error:" + err.Error())
+	}
+
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.BscLockProxy)
+	token, err := eth.NewStandardToken(assetaddress, ctx.BscInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, failed to NewStandardToken: %v", err)
+	}
+	val, err := token.Allowance(nil, ctx.BscInvoker.EthTestSigner.Address, contractAddr)
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, failed to get allowance: %v", err)
+	}
+	if val.Uint64() < amount {
+		nonce := ctx.BscInvoker.NM.GetAddressNonce(ctx.BscInvoker.EthTestSigner.Address)
+		auth := MakeEthAuth(ctx.BscInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
+		if err != nil {
+			return fmt.Errorf("SendBscEthCrossEth, failed to get eth auth: %v", err)
+		}
+		tx, err := token.Approve(auth, contractAddr, big.NewInt(math.MaxInt64))
+		if err != nil {
+			return fmt.Errorf("SendBscEthCrossEth, failed to approve: %v", err)
+		}
+		WaitTransactionConfirm(ctx.BscInvoker.ETHUtil.GetEthClient(), tx.Hash())
+	}
+
+	callMsg := ethereum.CallMsg{
+		From: ctx.BscInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(0)), Data: txData,
+	}
+	gasLimit, err := ctx.BscInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.BscInvoker.NM.GetAddressNonce(ctx.BscInvoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(0)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.BscInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.BscInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendBscEthCrossEth, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"SendBscEthCrossEth", time.Now()})
+	WaitTransactionConfirm(ctx.BscInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
+func SendEthCrossBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.EthInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, get suggest gas price failed error: %s", err.Error())
+	}
+	//gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, abi.JSON error:" + err.Error())
+	}
+	rawFrom := ctx.BscInvoker.EthTestSigner.Address.Bytes()
+	assetaddress := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.BscChainID), rawFrom[:],
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, contractabi.Pack error:" + err.Error())
+	}
+
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.EthLockProxy)
+	callMsg := ethereum.CallMsg{
+		From: ctx.EthInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(amount)), Data: txData,
+	}
+	gasLimit, err := ctx.EthInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.EthInvoker.NM.GetAddressNonce(ctx.EthInvoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.EthInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.EthInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendEthCrossBsc, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"SendEthCrossBsc", time.Now()})
+	WaitTransactionConfirm(ctx.EthInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
 func SendEthBnbCrossBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
 	gasPrice, err := ctx.EthInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
 	if err != nil {
