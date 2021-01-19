@@ -75,6 +75,7 @@ func init() {
 	testframework.TFramework.RegTestCase("WBTCCircle", WBTCCircle)
 	testframework.TFramework.RegTestCase("DAICircle", DAICircle)
 	testframework.TFramework.RegTestCase("NeoToEthCircle", NeoToEthCircle)
+	testframework.TFramework.RegTestCase("NeoToBscCircle", NeoToBscCircle)
 	testframework.TFramework.RegTestCase("NeoToOntCircle", NeoToOntCircle)
 	testframework.TFramework.RegTestCase("OntToNeoAndBack", OntToNeoAndBack)
 	testframework.TFramework.RegTestCase("EthToNeoAndBack", EthToNeoAndBack)

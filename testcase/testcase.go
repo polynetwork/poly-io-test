@@ -1014,6 +1014,29 @@ func DAICircle(ctx *testframework.TestFrameworkContext, status *testframework.Ca
 	return true
 }
 
+func NeoToBscCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.NeoValLimit, 1)
+		if err := SendNeoCrossBsc(ctx, status, amt); err != nil {
+			log.Errorf("NeoToBscCircle, SendNeoCrossBsc error: %v", err)
+			return false
+		}
+		log.Infof("NeoToBscCircle, send %d NEO to bsc, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		if err := SendBscNeoCrossNeo(ctx, status, amt); err != nil {
+			log.Errorf("NeoToBscCircle, SendBscNeoCrossNeo error: %v", err)
+			return false
+		}
+		log.Infof("NeoToBscCircle, send %d NEO from bsc to NEO, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+		log.Infof("NeoToBscCircle, neo all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
 func NeoToEthCircle(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
 	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
 		amt := GetRandAmount(config.DefConfig.NeoValLimit, 1)

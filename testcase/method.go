@@ -1773,6 +1773,70 @@ func SendODAICrossEth(ctx *testframework.TestFrameworkContext, status *testframe
 	return nil
 }
 
+func SendNeoCrossBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	lpAddr, err := helper.UInt160FromString(config.DefConfig.NeoLockProxy)
+	if err != nil {
+		return err
+	}
+
+	rawCNeo := helper.ReverseBytes(helper.HexToBytes(config.DefConfig.CNeo))
+	fromAsset := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: rawCNeo,
+	}
+	rawFrom, err := helper.AddressToScriptHash(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return err
+	}
+	fromAddr := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: rawFrom.Bytes(),
+	}
+	toChainId := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(config.DefConfig.BscChainID)),
+	}
+	toAddr := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: ctx.BscInvoker.EthTestSigner.Address.Bytes(),
+	}
+	amt := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(amount)),
+	}
+	idx := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(1),
+	}
+
+	tb := tx.NewTransactionBuilder(config.DefConfig.NeoUrl)
+	sb := sc.NewScriptBuilder()
+	sb.MakeInvocationScript(lpAddr.Bytes(), "lock", []sc.ContractParameter{fromAsset, fromAddr, toChainId, toAddr, amt, idx})
+	script := sb.ToArray()
+
+	from, err := helper.AddressToScriptHash(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return err
+	}
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	if err != nil {
+		return err
+	}
+	err = tx.AddSignature(itx, ctx.NeoInvoker.Acc.KeyPair)
+	if err != nil {
+		return err
+	}
+	response := tb.Client.SendRawTransaction(itx.RawTransactionString())
+	if response.HasError() {
+		return fmt.Errorf(response.ErrorResponse.Error.Message)
+	}
+	_ = itx.HashString()
+
+	status.AddTx(hex.EncodeToString(itx.Hash.Bytes()), &testframework.TxInfo{"SendNeoCrossBsc", time.Now()})
+	neo.WaitNeoTx(ctx.NeoInvoker.Cli, itx.Hash)
+	return nil
+}
+
 func SendNeoCrossEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
 	lpAddr, err := helper.UInt160FromString(config.DefConfig.NeoLockProxy)
 	if err != nil {
@@ -1896,6 +1960,84 @@ func SendNeoCrossOnt(ctx *testframework.TestFrameworkContext, status *testframew
 	neo.WaitNeoTx(ctx.NeoInvoker.Cli, itx.Hash)
 
 	log.Infof("successful to send %d CNEO to Ontology", amount)
+	return nil
+}
+
+func SendBscNeoCrossNeo(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.BscInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+		return fmt.Errorf("SendBscNeoCrossNeo, get suggest gas price failed error: %s", err.Error())
+	}
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, abi.JSON error:" + err.Error())
+	}
+	assetaddress := ethcommon.HexToAddress(config.DefConfig.BscNeo)
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.BscLockProxy)
+
+	// approve
+	neox, err := erc20_abi.NewERC20(assetaddress, ctx.BscInvoker.ETHUtil.GetEthClient())
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, NewERC20 error:" + err.Error())
+	}
+	val, err := neox.Allowance(nil, ctx.BscInvoker.EthTestSigner.Address, contractAddr)
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, failed to get the balance: %v", err)
+	}
+	if val.Uint64() < amount {
+		nonce := ctx.BscInvoker.NM.GetAddressNonce(ctx.BscInvoker.EthTestSigner.Address)
+		auth := MakeEthAuth(ctx.BscInvoker.EthTestSigner, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
+		if err != nil {
+			return fmt.Errorf("SendBscNeoCrossNeo, failed to get eth auth: %v", err)
+		}
+		tx, err := neox.Approve(auth, contractAddr, big.NewInt(math.MaxInt64))
+		if err != nil {
+			return fmt.Errorf("SendBscNeoCrossNeo, failed to approve: %v", err)
+		}
+		WaitTransactionConfirm(ctx.BscInvoker.ETHUtil.GetEthClient(), tx.Hash())
+	}
+
+	rawFrom, err := helper.AddressToScriptHash(ctx.NeoInvoker.Acc.Address)
+	if err != nil {
+		return err
+	}
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.NeoChainID), rawFrom[:],
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, contractabi.Pack error:" + err.Error())
+	}
+	callMsg := ethereum.CallMsg{
+		From: ctx.BscInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(0)), Data: txData,
+	}
+	gasLimit, err := ctx.BscInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.BscInvoker.NM.GetAddressNonce(ctx.BscInvoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(0)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.BscInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.BscInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendBscNeoCrossNeo, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"SendBscNeoCrossNeo", time.Now()})
+	WaitTransactionConfirm(ctx.BscInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
 	return nil
 }
 
