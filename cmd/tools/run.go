@@ -41,6 +41,7 @@ import (
 	"github.com/ontio/ontology/smartcontract/service/native/governance"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
 	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
+	"github.com/polynetwork/eth-contracts/go_abi/eccmp_abi"
 	"github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
@@ -48,6 +49,7 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/fabric"
 	"github.com/polynetwork/poly-io-test/chains/fisco"
 	eccm_abi2 "github.com/polynetwork/poly-io-test/chains/fisco/go_abi/eccm_abi"
+	eccmp_abi2 "github.com/polynetwork/poly-io-test/chains/fisco/go_abi/eccmp_abi"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
@@ -379,6 +381,10 @@ func main() {
 		}
 
 		SyncFabricRootCA(poly, accArr, rootca)
+	case "update_eth_ccm_chain_id":
+		UpdateECCMChainId(config.DefConfig.EthChainID)
+	case "update_fisco_ccm_chain_id":
+		UpdateFiscoCCMChainId(config.DefConfig.FiscoChainID)
 	}
 }
 
@@ -1539,4 +1545,79 @@ func SyncFabricRootCA(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account, 
 		testcase.WaitPolyTx(txhash, poly)
 		log.Infof("successful to sync fabric root CA: (txhash: %s, \n CA: \n%s )", txhash.ToHexString(), string(sink.Bytes()))
 	}
+}
+
+func UpdateECCMChainId(nid uint64) {
+	tool := eth.NewEthTools(config.DefConfig.EthURL)
+	proxy, err := eccmp_abi.NewEthCrossChainManagerProxy(common3.HexToAddress(config.DefConfig.Eccmp), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+
+	signer, err := eth.NewEthSigner(config.DefConfig.ETHPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("UpdateECCMChainId, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(eth.DefaultGasLimit))
+
+	tx, err := proxy.PauseEthCrossChainManager(auth)
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("pause eccm transaction hash: %s", tx.Hash().String())
+	testcase.WaitTransactionConfirm(tool.GetEthClient(), tx.Hash())
+
+	auth.Nonce = big.NewInt(0).SetUint64(nonce + 1)
+	tx, err = proxy.ChangeManagerChainID(auth, nid)
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("change id transaction hash: %s", tx.Hash().String())
+	testcase.WaitTransactionConfirm(tool.GetEthClient(), tx.Hash())
+
+	auth.Nonce = big.NewInt(0).SetUint64(nonce + 1)
+	tx, err = proxy.UnpauseEthCrossChainManager(auth)
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("unpause eccm transaction hash: %s", tx.Hash().String())
+	testcase.WaitTransactionConfirm(tool.GetEthClient(), tx.Hash())
+}
+
+func UpdateFiscoCCMChainId(nid uint64) {
+	invoker, err := fisco.NewFiscoInvoker()
+	if err != nil {
+		panic(err)
+	}
+	eccmp, err := eccmp_abi2.NewEthCrossChainManagerProxy(common3.HexToAddress(config.DefConfig.FiscoCCMP), invoker.FiscoSdk)
+	if err != nil {
+		panic(err)
+	}
+
+	tx, err := eccmp.PauseEthCrossChainManager(invoker.MakeSmartContractAuth())
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("pause ccm transaction hash: %s", tx.Hash().String())
+	invoker.WaitTransactionConfirm(tx.Hash())
+
+	tx, err = eccmp.ChangeManagerChainID(invoker.MakeSmartContractAuth(), nid)
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("change id transaction hash: %s", tx.Hash().String())
+	invoker.WaitTransactionConfirm(tx.Hash())
+
+	tx, err = eccmp.UnpauseEthCrossChainManager(invoker.MakeSmartContractAuth())
+	if err != nil {
+		panic(err)
+	}
+	log.Infof("unpause ccm transaction hash: %s", tx.Hash().String())
+	invoker.WaitTransactionConfirm(tx.Hash())
 }

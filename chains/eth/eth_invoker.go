@@ -93,7 +93,7 @@ func (ethInvoker *EInvoker) DeployEthChainDataContract() (ethComm.Address, *eccd
 		return ethComm.Address{}, nil, fmt.Errorf("DeployEthChainDataContract, err: %v", err)
 	}
 	contractAddress, tx, contract, err := eccd_abi.DeployEthCrossChainData(auth,
-		ethInvoker.ETHUtil.GetEthClient())
+		ethInvoker.ETHUtil.GetEthClient(), auth.From)
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployEthChainDataContract, err: %v", err)
 	}
@@ -101,14 +101,14 @@ func (ethInvoker *EInvoker) DeployEthChainDataContract() (ethComm.Address, *eccd
 	return contractAddress, contract, nil
 }
 
-func (ethInvoker *EInvoker) DeployECCMContract(eccdAddress string) (ethComm.Address, *eccm_abi.EthCrossChainManager, error) {
+func (ethInvoker *EInvoker) DeployECCMContract(eccdAddress string, id uint64) (ethComm.Address, *eccm_abi.EthCrossChainManager, error) {
 	auth, err := ethInvoker.MakeSmartContractAuth()
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}
 	address := ethComm.HexToAddress(eccdAddress)
 	contractAddress, tx, contract, err := eccm_abi.DeployEthCrossChainManager(auth,
-		ethInvoker.ETHUtil.GetEthClient(), address, config.DefConfig.EthChainID)
+		ethInvoker.ETHUtil.GetEthClient(), address, auth.From, id)
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMContract, err: %v", err)
 	}
@@ -120,7 +120,7 @@ func (ethInvoker *EInvoker) DeployECCMPContract(eccmAddress string) (ethComm.Add
 	auth, _ := ethInvoker.MakeSmartContractAuth()
 	address := ethComm.HexToAddress(eccmAddress)
 	contractAddress, tx, contract, err := eccmp_abi.DeployEthCrossChainManagerProxy(auth,
-		ethInvoker.ETHUtil.GetEthClient(), address)
+		ethInvoker.ETHUtil.GetEthClient(), address, auth.From)
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployECCMPContract, err: %v", err)
 	}
