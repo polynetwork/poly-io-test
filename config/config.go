@@ -209,8 +209,6 @@ func NewTestConfig() *TestConfig {
 
 func NewDefaultTestConfig() *TestConfig {
 	var config = NewTestConfig()
-	// todo delete me
-	config.ZilChainId = 9
 	err := config.Init(DefaultConfigFile)
 	if err != nil {
 		return &TestConfig{}
