@@ -1205,9 +1205,9 @@ func RegisterZIL(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	extraBytes, _ := json.Marshal(extra)
 
 	// todo cross chain manger or its proxy
-	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.ZilEccdProxy, "0x", "", 1))
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.ZilEccdImpl, "0x", "", 1))
 	if err != nil {
-		panic(fmt.Errorf("RegisterZIL, failed to decode eccd '%s' : %v", config.DefConfig.ZilEccdProxy, err))
+		panic(fmt.Errorf("RegisterZIL, failed to decode eccd '%s' : %v", config.DefConfig.ZilEccdImpl, err))
 	}
 
 	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.ZilChainId, 9, "zil",
