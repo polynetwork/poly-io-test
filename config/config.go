@@ -44,6 +44,7 @@ type TestConfig struct {
 	OntChainID uint64
 	NeoChainID uint64
 	BscChainID uint64
+	ZilChainId uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -69,6 +70,10 @@ type TestConfig struct {
 	// bsc urls
 	BSCURL        string
 	BSCPrivateKey string
+
+	// zil urls
+	ZilURL string
+	ZilPrivateKey string
 
 	// ontology
 	OntJsonRpcAddress   string
@@ -123,6 +128,10 @@ type TestConfig struct {
 	BscUSDC      string
 	BscNeo       string
 	BscRenBTC    string
+
+	// zil contracts
+	ZilEccdProxy string
+	ZilEccdImpl string
 
 	// eth contracts: auto set after deploy
 	EthBnb              string
@@ -200,6 +209,8 @@ func NewTestConfig() *TestConfig {
 
 func NewDefaultTestConfig() *TestConfig {
 	var config = NewTestConfig()
+	// todo delete me
+	config.ZilChainId = 9
 	err := config.Init(DefaultConfigFile)
 	if err != nil {
 		return &TestConfig{}

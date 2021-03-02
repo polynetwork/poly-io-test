@@ -24,8 +24,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/Zilliqa/gozilliqa-sdk/account"
+	"github.com/Zilliqa/gozilliqa-sdk/core"
+	"github.com/Zilliqa/gozilliqa-sdk/crosschain/polynetwork"
+	"github.com/Zilliqa/gozilliqa-sdk/provider"
+	zilutil "github.com/Zilliqa/gozilliqa-sdk/util"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/btcsuite/btcd/wire"
@@ -163,6 +169,10 @@ func main() {
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
+		case config.DefConfig.ZilChainId:
+			if RegisterZIL(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.ZilChainId, poly, accArr)
+			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
@@ -181,6 +191,9 @@ func main() {
 			}
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
+			}
+			if RegisterZIL(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.ZilChainId, poly, accArr)
 			}
 		}
 
@@ -209,6 +222,8 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
 			SyncBSCGenesisHeader(poly, accArr)
+		case config.DefConfig.ZilChainId:
+			SyncZILGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -216,6 +231,7 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 			SyncNeoGenesisHeader(poly, accArr)
 			SyncBSCGenesisHeader(poly, accArr)
+			SyncZILGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
@@ -560,6 +576,172 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	}
 	tool.WaitTransactionConfirm(tx.Hash())
 	log.Infof("successful to sync poly genesis header to Ethereum: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	type TxBlockAndDsComm struct {
+		TxBlock *core.TxBlock
+		DsBlock *core.DsBlock
+		DsComm  []core.PairOfNode
+	}
+
+	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
+	networkId, err := zilSdk.GetNetworkId()
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader failed: %s", err.Error()))
+	}
+
+	var dsComm []core.PairOfNode
+	var initDsBlockNum string
+	var initTxBlockNum string
+
+	// for devnet
+	if networkId == "111" {
+
+		initDsBlockNum = "1"
+		initTxBlockNum = "1"
+
+		ipAndAddr, _ := new(big.Int).SetString("2390748178", 10)
+		dsComm = []core.PairOfNode{
+			{
+				PubKey: "02105342331FCD7CA95648DF8C5373C596982544F35E90849B1E619DFC59F03D48",
+			},
+			{
+				PubKey: "021D439D1CCCAE17C3D6E855BC78E96438C808D16D1CBF8D7ABD391E41CEE9B1BF",
+			},
+			{
+				PubKey: "021EDDE95598F5F59708D2E728E00EDB2ECF278C16BD389384320B1AF998DCC2FD",
+			},
+			{
+				PubKey: "02445FE498E7FBB240BDF9185EB5E7642AF1AF36852D1E132E198A222FBAC617A0",
+			},
+			{
+				PubKey: "0256EC4BC62FB56C83A3F6160E67499A9E381CF7A613EBF34B9ECDB9E64171DDF4",
+			},
+			{
+				PubKey: "0264D991762D81DD6557BCB33EC8AA3F621B4CB790852F2231C864921387B76862",
+			},
+			{
+				PubKey: "027A00916BDD3CF954ED13A0494BFB73FF95BF28C54004F2749F1A8E8CC1AB5B3D",
+			},
+			{
+				PubKey: "0297C693FBEBAF397CBDE616F605920EF70D7F6E5EC8DD82E71AE1E812E5E0B303",
+			},
+			{
+				PubKey: "02AE5ADF63E9161000713987B5EBB490B5E6B57CF5B7F9799B4AB907BA19D468F6",
+			},
+			{
+				PubKey: "0374A5CA5D76BEE5A1DE132AE72184AB084D23EC7A4867CCD562C58405BBB663E2",
+				Peer: core.Peer{
+					IpAddress:      ipAndAddr,
+					ListenPortHost: 33133,
+				},
+			},
+		}
+	}
+
+	// for testnet
+	if networkId == "333" {
+		// todo impl this
+	}
+
+	// for mainnet
+	if networkId == "1" {
+		// todo impl this
+	}
+
+	dsBlockT, err := zilSdk.GetDsBlockVerbose(initDsBlockNum)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader get ds block 1 failed: %s", err.Error()))
+	}
+	dsBlock := core.NewDsBlockFromDsBlockT(dsBlockT)
+
+	txBlockT, err := zilSdk.GetTxBlockVerbose(initTxBlockNum)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader get tx block 1 failed: %s", err.Error()))
+	}
+
+	txBlock := core.NewTxBlockFromTxBlockT(txBlockT)
+
+	txBlockAndDsComm := TxBlockAndDsComm{
+		TxBlock: txBlock,
+		DsBlock: dsBlock,
+		DsComm:  dsComm,
+	}
+
+	raw, err := json.Marshal(txBlockAndDsComm)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader marshal genesis info failed: %s", err.Error()))
+	}
+
+	// sync zilliqa genesis info onto polynetwork
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.ZilChainId, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("zil already synced")
+		} else {
+			panic(fmt.Errorf("SyncZILGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync zil genesis header, ds block: %s, tx block: %s, ds comm: %+v\n", dsBlock.BlockHash, txBlock.BlockHash, dsComm)
+	}
+
+	// sycn poly network info to zilliqa cross chain manager
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	genesisHeader := zilutil.EncodeHex(gB.Header.ToArray())
+	genesisPubKey := zilutil.EncodeHex(publickeys)
+
+	publicKeys, err := polynetwork.SplitPubKeys(genesisPubKey)
+	if err != nil {
+		panic(err)
+	}
+
+	wallet := account.NewWallet()
+	wallet.AddByPrivateKey(config.DefConfig.ZilPrivateKey)
+	chainIdInt, _ := strconv.ParseInt(networkId, 10, 64)
+	p := &polynetwork.Proxy{
+		ProxyAddr:  config.DefConfig.ZilEccdProxy,
+		ImplAddr:   config.DefConfig.ZilEccdImpl,
+		Wallet:     wallet,
+		Client:     zilSdk,
+		ChainId:    int(chainIdInt),
+		MsgVersion: 1,
+	}
+
+	tx, err := p.InitGenesisBlock(genesisHeader, publicKeys)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader failed at init genesis block to zilliqa: %v", err))
+	}
+
+	hash, _ := tx.Hash()
+	if tx.Receipt.Success {
+		log.Infof("succeed to sync poly genesis header to ZIL: ( txhash: %s )", zilutil.EncodeHex(hash))
+	} else {
+		log.Infof("failed to sync poly genesis header to ZIL: ( txhash: %s )", zilutil.EncodeHex(hash))
+	}
+
 }
 
 func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -992,6 +1174,59 @@ func RegisterBSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register bsc chain: ( txhash: %s )", txhash.ToHexString())
 
+	return true
+}
+
+func RegisterZIL(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+
+	type ExtraInfo struct {
+		NumOfGuardList int
+	}
+
+	numOfGuardList := 0
+	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
+	networkId, err := zilSdk.GetNetworkId()
+	if err != nil {
+		panic(fmt.Errorf("RegisterZIL failed: %s", err.Error()))
+	}
+
+	if networkId == "111" {
+		numOfGuardList = 9
+	} else if networkId == "333" {
+		// todo impl this
+	} else if networkId == "1" {
+		// todo impl this
+	}
+
+	fmt.Println("register zil")
+	blkToWait := uint64(15)
+
+	extra := ExtraInfo{NumOfGuardList: numOfGuardList}
+	extraBytes, _ := json.Marshal(extra)
+
+	// todo cross chain manger or its proxy
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.ZilEccdProxy, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterZIL, failed to decode eccd '%s' : %v", config.DefConfig.ZilEccdProxy, err))
+	}
+
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.ZilChainId, 9, "zil",
+		blkToWait, eccd, extraBytes, acc)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("zil chain %d already registered", config.DefConfig.ZilChainId)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("zil chain %d already requested", config.DefConfig.ZilChainId)
+			return true
+		}
+		panic(fmt.Errorf("RegisterZIL failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register zil chain: ( txhash: %s )", txhash.ToHexString())
 	return true
 }
 

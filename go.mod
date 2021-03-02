@@ -3,10 +3,11 @@ module github.com/polynetwork/poly-io-test
 go 1.14
 
 require (
+	github.com/Zilliqa/gozilliqa-sdk v1.2.1-0.20210224095650-0f974c79345b // indirect
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/cosmos/cosmos-sdk v0.39.1
-	github.com/ethereum/go-ethereum v1.9.15
+	github.com/ethereum/go-ethereum v1.9.24
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/joeqian10/neo-gogogo v0.0.0-20200811090937-d8aab8600241
@@ -30,7 +31,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
 
-replace github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20201215112041-6532ab4e12f4
+replace github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20210115072359-e4cac6edc20c
 
 replace github.com/polynetwork/poly => github.com/zhiqiangxu/poly v0.0.0-20201216075543-df86073d2575
 
