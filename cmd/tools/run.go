@@ -684,7 +684,7 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		}
 	} else {
 		testcase.WaitPolyTx(txhash, poly)
-		log.Infof("successful to sync zil genesis header, ds block: %s, tx block: %s, ds comm: %+v\n", dsBlock.BlockHash, txBlock.BlockHash, dsComm)
+		log.Infof("successful to sync zil genesis header, ds block: %s, tx block: %s, ds comm: %+v\n", zilutil.EncodeHex(dsBlock.BlockHash[:]), zilutil.EncodeHex(txBlock.BlockHash[:]), dsComm)
 	}
 
 	// sycn poly network info to zilliqa cross chain manager
@@ -710,7 +710,7 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
 	}
 
-	genesisHeader := zilutil.EncodeHex(gB.Header.ToArray())
+	genesisHeader := "0x" + zilutil.EncodeHex(gB.Header.ToArray())
 	genesisPubKey := zilutil.EncodeHex(publickeys)
 
 	publicKeys, err := polynetwork.SplitPubKeys(genesisPubKey)
