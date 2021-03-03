@@ -601,7 +601,7 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		initDsBlockNum = "1"
 		initTxBlockNum = "1"
 
-		ipAndAddr, _ := new(big.Int).SetString("2390748178", 10)
+		ipAndAddr, _ := new(big.Int).SetString("875154230", 10)
 		dsComm = []core.PairOfNode{
 			{
 				PubKey: "02105342331FCD7CA95648DF8C5373C596982544F35E90849B1E619DFC59F03D48",
