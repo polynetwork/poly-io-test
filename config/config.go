@@ -44,7 +44,7 @@ type TestConfig struct {
 	OntChainID uint64
 	NeoChainID uint64
 	BscChainID uint64
-	ZilChainId uint64
+	ZilChainID uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -72,7 +72,7 @@ type TestConfig struct {
 	BSCPrivateKey string
 
 	// zil urls
-	ZilURL string
+	ZilURL        string
 	ZilPrivateKey string
 
 	// ontology
@@ -131,7 +131,7 @@ type TestConfig struct {
 
 	// zil contracts
 	ZilEccdProxy string
-	ZilEccdImpl string
+	ZilEccdImpl  string
 
 	// eth contracts: auto set after deploy
 	EthBnb              string

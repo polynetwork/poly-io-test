@@ -24,15 +24,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math/big"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/Zilliqa/gozilliqa-sdk/account"
 	"github.com/Zilliqa/gozilliqa-sdk/core"
 	"github.com/Zilliqa/gozilliqa-sdk/crosschain/polynetwork"
 	"github.com/Zilliqa/gozilliqa-sdk/provider"
 	zilutil "github.com/Zilliqa/gozilliqa-sdk/util"
-	"math/big"
-	"os"
-	"strconv"
-	"strings"
 
 	"github.com/btcsuite/btcd/wire"
 	types3 "github.com/cosmos/cosmos-sdk/types"
@@ -169,9 +170,9 @@ func main() {
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
-		case config.DefConfig.ZilChainId:
+		case config.DefConfig.ZilChainID:
 			if RegisterZIL(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.ZilChainId, poly, accArr)
+				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
 			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
@@ -193,7 +194,7 @@ func main() {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
 			if RegisterZIL(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.ZilChainId, poly, accArr)
+				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
 			}
 		}
 
@@ -222,7 +223,7 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
 			SyncBSCGenesisHeader(poly, accArr)
-		case config.DefConfig.ZilChainId:
+		case config.DefConfig.ZilChainID:
 			SyncZILGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
@@ -675,7 +676,7 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	}
 
 	// sync zilliqa genesis info onto polynetwork
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.ZilChainId, raw, accArr)
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.ZilChainID, raw, accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("zil already synced")
@@ -1210,16 +1211,16 @@ func RegisterZIL(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		panic(fmt.Errorf("RegisterZIL, failed to decode eccd '%s' : %v", config.DefConfig.ZilEccdImpl, err))
 	}
 
-	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.ZilChainId, 9, "zil",
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.ZilChainID, 9, "zil",
 		blkToWait, eccd, extraBytes, acc)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("zil chain %d already registered", config.DefConfig.ZilChainId)
+			log.Infof("zil chain %d already registered", config.DefConfig.ZilChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("zil chain %d already requested", config.DefConfig.ZilChainId)
+			log.Infof("zil chain %d already requested", config.DefConfig.ZilChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterZIL failed: %v", err))
