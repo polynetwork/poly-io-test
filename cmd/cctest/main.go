@@ -64,6 +64,7 @@ func main() {
 	var (
 		ethInvoker *eth.EInvoker
 		bscInvoker *eth.EInvoker
+		mscInvoker *eth.EInvoker
 	)
 	if config.DefConfig.EthChainID > 0 {
 		ethInvoker = eth.NewEInvoker(config.DefConfig.EthChainID)
@@ -71,6 +72,10 @@ func main() {
 
 	if config.DefConfig.BscChainID > 0 {
 		bscInvoker = eth.NewEInvoker(config.DefConfig.BscChainID)
+	}
+
+	if config.DefConfig.MscChainID > 0 {
+		mscInvoker = eth.NewEInvoker(config.DefConfig.MscChainID)
 	}
 
 	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
@@ -103,6 +108,9 @@ func main() {
 	}
 	if bscInvoker != nil {
 		testframework.TFramework.SetBSCInvoker(bscInvoker)
+	}
+	if mscInvoker != nil {
+		testframework.TFramework.SetMSCInvoker(mscInvoker)
 	}
 	//testframework.TFramework.SetBtcInvoker(btcInvoker)
 	testframework.TFramework.SetOntInvoker(ontInvoker)

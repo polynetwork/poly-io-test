@@ -1262,6 +1262,23 @@ func EthEthToBscAndBack(ctx *testframework.TestFrameworkContext, status *testfra
 	return true
 }
 
+func MscMxToMsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		if err := SendMxCrossMsc(ctx, status, amt); err != nil {
+			log.Errorf("MscMxToMsc, SendMxCrossMsc error: %v", err)
+			return false
+		}
+		log.Infof("MscMxToMsc, send %d mx to Msc, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		log.Infof("MscMxToMsc, mx all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
 func BnbToBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
 	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
 		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)

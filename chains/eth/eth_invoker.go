@@ -71,6 +71,8 @@ func (ethInvoker *EInvoker) url() string {
 	switch ethInvoker.ChainID {
 	case ethInvoker.TConfiguration.BscChainID:
 		return ethInvoker.TConfiguration.BSCURL
+	case ethInvoker.TConfiguration.MscChainID:
+		return ethInvoker.TConfiguration.MSCURL
 	case ethInvoker.TConfiguration.EthChainID:
 		return ethInvoker.TConfiguration.EthURL
 	default:
@@ -82,6 +84,8 @@ func (ethInvoker *EInvoker) privateKey() string {
 	switch ethInvoker.ChainID {
 	case ethInvoker.TConfiguration.BscChainID:
 		return ethInvoker.TConfiguration.BSCPrivateKey
+	case ethInvoker.TConfiguration.MscChainID:
+		return ethInvoker.TConfiguration.MSCPrivateKey
 	case ethInvoker.TConfiguration.EthChainID:
 		return ethInvoker.TConfiguration.ETHPrivateKey
 	default:
@@ -209,12 +213,16 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.BscChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.MscChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.NeoChainID {
 		other, err := helper.UInt160FromString(toAssetHash)
 		if err != nil {
 			return nil, err
 		}
 		toAddr = other[:]
+	} else {
+		panic(fmt.Sprintf("unkown toChainId:%d", toChainId))
 	}
 	tx, err := contract.BindAssetHash(auth, ethComm.HexToAddress(fromAssetHash),
 		uint64(toChainId), toAddr[:])

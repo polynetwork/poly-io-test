@@ -44,6 +44,7 @@ type TestConfig struct {
 	OntChainID uint64
 	NeoChainID uint64
 	BscChainID uint64
+	MscChainID uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -65,6 +66,10 @@ type TestConfig struct {
 	// eth urls
 	EthURL        string
 	ETHPrivateKey string
+
+	// msc urls
+	MSCURL        string
+	MSCPrivateKey string
 
 	// bsc urls
 	BSCURL        string
@@ -108,6 +113,21 @@ type TestConfig struct {
 	// Circle batch
 	TxNumPerBatch uint64
 
+	// msc contracts: auto set after deploy
+	MscEccd      string
+	MscEccm      string
+	MscEccmp     string
+	MscLockProxy string
+	Mep20        string
+	MscOep4      string
+	MscOngx      string
+	MscOntx      string
+	MscWBTC      string
+	MscUSDT      string
+	MscDai       string
+	MscUSDC      string
+	MscNeo       string
+	MscRenBTC    string
 	// bsc contracts: auto set after deploy
 	BscEccd      string
 	BscEccm      string
