@@ -1,0 +1,380 @@
+scilla_version 0
+
+import Polynetwork IntUtils Conversions
+
+library LockProxy
+
+(* toAssetHash, toAddress, amount *)
+type TxArgs = 
+| TxArgs of ByStr ByStr Uint256
+
+type Error = 
+  | AdminValidationFailed
+  | AmountCannotBeZero
+  | LockAmountMismatch
+  | IllegalToAssetHash
+  | IllegalToAmount
+  | IllegalTargetProxy
+  | ManagerValidationFailed
+  | IllegalFromProxy
+  | ParseToAssetAddressFailed
+  | ParseToAddressFailed
+  | IllegalAmount
+  | EmptyFromProxy
+  | FromProxyNotExist
+
+let make_error =
+  fun (result: Error) =>
+    let result_code =
+      match result with
+      | AdminValidationFailed => Int32 -1
+      | AmountCannotBeZero => Int32 -2
+      | LockAmountMismatch => Int32 -3
+      | IllegalToAssetHash => Int32 -4
+      | IllegalToAmount => Int32 -5
+      | IllegalTargetProxy => Int32 -6
+      | ManagerValidationFailed => Int32 -7
+      | IllegalFromProxy => Int32 -8
+      | ParseToAssetAddressFailed => Int32 -9
+      | ParseToAddressFailed => Int32 -10
+      | IllegalAmount => Int32 -11
+      | EmptyFromProxy => Int32 -12
+      | FromProxyNotExist => Int32 -13
+      end
+    in
+    { _exception: "Error"; code: result_code }
+
+
+let one_msg =
+  fun (m : Message) =>
+    let e = Nil {Message} in
+      Cons {Message} m e
+
+
+let big_endian = BigEndian
+let extract_uint256_be = extract_uint256 big_endian
+let append_uint256_be = append_uint256 big_endian
+
+let serialize_tx_args =
+  fun (args: TxArgs) =>
+    match args with
+    | TxArgs toAssetHash toAddress amount =>
+      let empty_str_0x = 0x in
+      let empty_str = builtin to_bystr empty_str_0x in
+      let to_asset_hash_str = append_varbytes empty_str toAssetHash in
+      let to_address = append_varbytes to_asset_hash_str toAddress in
+      let amount = append_uint256_be to_address amount in
+        amount
+    end
+
+let deserialize_tx_args = 
+  fun (value: ByStr) =>
+    fun (nextpos: Uint32) =>
+      let to_asset_hash_o = extract_bystr value nextpos in
+        match to_asset_hash_o with
+        | Some (Pair to_asset_hash nextpos) =>
+          let to_address_o = extract_bystr value nextpos in
+            match to_address_o with
+            | Some (Pair to_address nextpos) =>
+               let amount_o = extract_uint256_be value nextpos in
+                 match amount_o with
+                 | Some (Pair amount nextpos) =>
+                   let tx_args = TxArgs to_asset_hash to_address amount in
+                   Some { TxArgs } tx_args
+                 | None => None { TxArgs }
+                 end
+            | None => None { TxArgs }
+            end 
+        | None => None { TxArgs }
+        end
+
+let uint128_zero = Uint128 0
+let uint32_zero = Uint32 0
+let zero_address = 0x0000000000000000000000000000000000000000
+let zero_bystr = let a = 0x in builtin to_bystr a
+(* it is unlock *)
+let unclock = let a = 0x756e6c6f636b in builtin to_bystr a
+let uint128_max = Uint256 340282366920938463463374607431768211455
+
+(***************************************************)
+(*             The contract definition             *)
+(***************************************************)
+contract LockProxy(
+  init_admin: ByStr20,
+  init_manager_proxy: ByStr20,
+  init_manager: ByStr20
+)
+
+field contractadmin: ByStr20  = init_admin
+field asset_map: Map ByStr20 (Map Uint64 ByStr) = Emp ByStr20 (Map Uint64 ByStr)
+(* The LockProxy in other blockchains *)
+field proxy_hash_map: Map Uint64 ByStr = Emp Uint64 ByStr
+field manager: ByStr20 = init_manager
+field manager_proxy: ByStr20 = init_manager_proxy
+
+(* Procedures *)
+procedure ThrowError(err: Error)
+  e = make_error err;
+  throw e
+end
+
+procedure IsAdmin(initiator: ByStr20)
+  contractadmin_tmp <- contractadmin;
+  is_admin = builtin eq initiator contractadmin_tmp;
+  match is_admin with
+  | True  =>
+  | False =>
+    e = AdminValidationFailed;
+    ThrowError e
+  end
+end
+
+procedure IsManagerContract(initiator: ByStr20)
+  manager_l <- manager;
+  is_manager = builtin eq manager_l initiator;
+  match is_manager with
+  | True =>
+  | False =>
+    e = ManagerValidationFailed;
+    ThrowError e
+  end
+end
+
+(* lock amount should not be zero *)
+procedure ValidateAmount(amount: Uint128)
+  is_zero = builtin eq amount uint128_zero;
+  match is_zero with
+  | True =>
+    e =  AmountCannotBeZero;
+    ThrowError e
+  | False =>
+  end
+end
+
+procedure validateFromProxy(fromContractAddr: ByStr)
+  is_equal = builtin eq zero_bystr fromContractAddr;
+  match is_equal with
+  | True =>
+    e = EmptyFromProxy;
+    ThrowError e
+  | False =>
+  end
+end
+
+procedure ValidateToAssetHash(toAssetHash: ByStr)
+  is_equal = builtin eq zero_bystr toAssetHash;
+  match is_equal with
+  | True =>
+    e = IllegalToAssetHash;
+    ThrowError e
+  | False =>
+  end
+end
+
+procedure ValidateFromProxy(fromContractAddr: ByStr, fromChainId: Uint64)
+  e = { _eventname: "ValidateFromProxy"; fromContractAddr: fromContractAddr; fromChainId: fromChainId };
+  event e;
+  validateFromProxy fromContractAddr;
+  targetAddr_o <- proxy_hash_map[fromChainId];
+  match targetAddr_o with
+  | Some targetAddr =>
+    is_equal = builtin eq targetAddr fromContractAddr;
+    match is_equal with
+    | True =>
+    | False =>
+      e = IllegalFromProxy;
+      ThrowError e
+    end
+  | None =>
+    e = FromProxyNotExist;
+    ThrowError e
+  end
+end
+
+(* @param fromAssetHash: The asset address in current chain, uniformly named as fromAssetHash *)
+(* @param fromAddress: obtained by _sender *)
+(* @param toAddress: address is this contract: _this_address *)
+(* @param amount:   The amount of tokens to be crossed from ethereum to the chain with chainId  *)
+procedure transferZRC2ToContract(fromAssetHash: ByStr20, fromAddress: ByStr20, toAddress: ByStr20, amount: Uint128)
+  msg_to_zrc2 = {_tag: "TransferFrom"; _recipient: fromAssetHash; _amount: uint128_zero; 
+                  from: fromAddress; to: toAddress; amount: amount};
+  msgs = one_msg msg_to_zrc2;
+  send msgs
+end
+
+procedure transferZRC2FromContract(toAssetHash: ByStr20, address: ByStr20, amount: Uint128)
+  msg_to_zrc2 = {_tag: "Transfer"; _recipient: toAssetHash; _amount: uint128_zero; 
+                 to: address; amount: amount};
+  msgs = one_msg msg_to_zrc2;
+  send msgs
+end
+
+procedure transferNativeZILFromContract(address: ByStr20, amount: Uint128)
+  msg = {_tag: "AddFunds"; _recipient: address; _amount: amount };
+  msgs = one_msg msg;
+  send msgs
+end
+
+(* transfer asset from LockProxy contract to address *)
+procedure TransferFromContract(toAssetHash: ByStr20, address: ByStr20, amount: Uint256)
+  (* convert Uint256 amount to Uint128 amount, so it cannot be greater than uint128_max *)
+  is_greater =  uint256_gt amount uint128_max;
+  match is_greater with
+  | True =>
+    e = IllegalAmount;
+    ThrowError e
+  | False =>
+    uint128_amount_o = builtin to_uint128 amount;
+    match uint128_amount_o with
+    | Some uint128_amount =>
+      (* if toAssetHash is zero address, then transfer native zil, otherwise, transfer zrc2 *)
+      is_native_transfer = builtin eq toAssetHash zero_address;
+      match is_native_transfer with
+      | True =>
+        transferNativeZILFromContract address uint128_amount;
+        e = { _eventname: "TransferFromContract"; toAssetHash: toAssetHash; address: address; amount: amount };
+        event e
+      | False =>
+        transferZRC2FromContract toAssetHash address uint128_amount;
+        e = { _eventname: "TransferFromContract"; toAssetHash: toAssetHash; address: address; amount: amount };
+        event e
+      end
+    | None =>
+      e = IllegalAmount;
+      ThrowError e
+    end
+  end
+end
+
+(* transfer asset from fromAddress to LockProxy contract *)
+procedure TransferToContract(fromAssetHash: ByStr20, amount: Uint128)
+  (* if people choose to lock native zil, then fromAssetHash should be 0x0000000000000000000000000000000000000000 *)
+  is_asset_zil = builtin eq fromAssetHash zero_address;
+  match is_asset_zil with
+  | True =>
+    accept;
+    is_amount_correct = builtin eq _amount amount;
+    match is_amount_correct with
+    | True =>
+      e = { _eventname: "TransferToContract"; fromAssetHash: fromAssetHash; amount: amount };
+      event e
+    | False =>
+      e = LockAmountMismatch;
+      ThrowError e
+    end
+  | False =>
+    (* no accept here, so even some zils is transfered, there is no harm *)
+    (* see IncreaseAllowance in ZRC2 *)
+    transferZRC2ToContract fromAssetHash _sender _this_address amount;
+    e = { _eventname: "TransferToContract"; fromAssetHash: fromAssetHash; amount: amount };
+    event e
+  end
+end
+
+procedure CrossChain(toChainId: Uint64, toContract: ByStr, method: ByStr, txData: ByStr)
+  manager_proxy_l <- manager_proxy;
+  msg = {_tag: "CrossChain"; _recipient: manager_proxy_l; _amount: uint128_zero; 
+        toChainId: toChainId; toContract: toContract; method: method; txData: txData };
+  msgs = one_msg msg;
+  send msgs
+end
+
+
+(* This function is meant to be invoked by the user *)
+(* a certin amount teokens will be locked in the proxy contract the invoker/msg.sender immediately.*)
+(* Then the same amount of tokens will be unloked from target chain proxy contract at the target chain with chainId later. *)
+(* @param fromAssetHash: The asset address in current chain, uniformly named as `fromAssetHash` *)
+(* @param toChainId:  The target chain id *)
+(* @param toAddress:  The address in bytes format to receive same amount of tokens in target chain  *)
+(* @param amount:   The amount of tokens to be crossed from ethereum to the chain with chainId  *)
+transition lock(fromAssetHash: ByStr20, toChainId: Uint64, toAddress: ByStr, amount: Uint128)
+  ValidateAmount amount;
+  TransferToContract fromAssetHash amount;
+  toAssetHash_o <- asset_map[fromAssetHash][toChainId];
+  match toAssetHash_o with
+  | Some toAssetHash =>
+    amount_256_o = builtin to_uint256 amount;
+    match amount_256_o with
+    | Some amount_256 =>
+      txArgs = TxArgs toAssetHash toAddress amount_256;
+      tx_data = serialize_tx_args txArgs;
+      target_proxy_o <- proxy_hash_map[toChainId];
+      match target_proxy_o with
+      | Some target_proxy =>
+        CrossChain toChainId target_proxy unclock tx_data;
+        e = { _eventname: "Lock"; fromAssetHash: fromAssetHash; fromAddress: _sender; toChainId: toChainId; 
+            toAssetHash: toAssetHash; toAddress: toAddress; amount: amount; tx_data: tx_data};
+        event e
+      | None =>
+        e = IllegalTargetProxy;
+        ThrowError e
+      end
+    | None =>
+      e = IllegalToAmount;
+      ThrowError e
+    end
+  | None =>
+    e = IllegalToAssetHash;
+    ThrowError e
+  end
+end
+
+(* This function is meant to be invoked by the Zilliqa crosschain management contract *)
+(* then mint a certin amount of tokens to the designated address since a certain amount *)
+(* was burnt from the source chain invoker. *)
+(* @param args: The argument bytes recevied by the zilliqa lock proxy contract, need to be deserialized. *)
+(* based on the way of serialization in the source chain proxy contract. *)
+(* @param fromContractAddr: The source chain contract address. *)
+(* @param fromChainId: The source chain id. *)
+transition unlock(args: ByStr, fromContractAddr: ByStr, fromChainId: Uint64)
+  IsManagerContract _sender;
+  ValidateFromProxy fromContractAddr fromChainId;
+  tx_args_o = deserialize_tx_args args uint32_zero;
+  match tx_args_o with
+  | Some (TxArgs toAssetHash toAddressHash amount) =>
+    (* ValidateToAssetHash toAssetHash; *)
+    toAssetAddress_o = builtin to_bystr20 toAssetHash;
+    toAddress_o = builtin to_bystr20 toAddressHash;
+    match toAssetAddress_o with
+    | Some toAssetAddress =>
+      match toAddress_o with
+      | Some toAddress =>
+        e = { _eventname: "Unlock"; toAssetHash: toAssetAddress; toAddressHash: toAddress; amount: amount };
+        event e;
+        TransferFromContract toAssetAddress toAddress amount
+      | None =>
+        e = ParseToAddressFailed;
+        ThrowError e
+      end
+    | None =>
+      e = ParseToAssetAddressFailed;
+      ThrowError e
+    end
+   
+  | None =>
+  end
+end
+
+transition BindAssetHash(fromAssetHash: ByStr20, toChainId: Uint64, toAssetHash: ByStr)
+  IsAdmin _sender;
+  asset_map[fromAssetHash][toChainId] := toAssetHash;
+  e = { _eventname: "BindAssetHash" };
+  event e
+end
+
+transition BindProxyHash(toChainId: Uint64, targetProxyHash: ByStr)
+  IsAdmin _sender;
+  proxy_hash_map[toChainId] := targetProxyHash;
+  e = { _eventname: "BindProxyHash" };
+  event e
+end
+
+transition SetManager(new_manager: ByStr20)
+  IsAdmin _sender;
+  manager := new_manager
+end
+
+transition SetManagerProxy(new_manager_proxy: ByStr20)
+  IsAdmin _sender;
+  manager_proxy := new_manager_proxy
+end
