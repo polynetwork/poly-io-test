@@ -51,7 +51,7 @@ func DeployZILSmartContract() {
 		panic(err)
 	}
 
-	zilSideChainId := strconv.FormatUint(config.DefConfig.ZilChainId, 10)
+	zilSideChainId := strconv.FormatUint(config.DefConfig.ZilChainID, 10)
 
 	proxy, impl, lockProxy, err := deployer.Deploy(wallet, client, zilSideChainId, int(chainId))
 
@@ -105,7 +105,7 @@ func SetupZILSmartContract() {
 		MsgVersion: 1,
 	}
 
-	sideChainId := strconv.FormatUint(config.DefConfig.ZilChainId, 10)
+	sideChainId := strconv.FormatUint(config.DefConfig.ZilChainID, 10)
 
 	_, err = l.BindProxyHash(sideChainId, config.DefConfig.EthLockProxy)
 	if err != nil {

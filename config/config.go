@@ -132,10 +132,7 @@ type TestConfig struct {
 	// zil contracts
 	ZilEccdProxy string
 	ZilEccdImpl  string
-<<<<<<< HEAD
-=======
 	ZilLockProxy string
->>>>>>> feat(zil) contract deploy
 
 	// eth contracts: auto set after deploy
 	EthBnb              string
