@@ -45,6 +45,7 @@ type TestConfig struct {
 	NeoChainID uint64
 	BscChainID uint64
 	MscChainID uint64
+	OkChainID  uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -71,6 +72,9 @@ type TestConfig struct {
 	MSCURL        string
 	MSCPrivateKey string
 
+	// ok urls
+	OKURL        string
+	OKPrivateKey string
 	// bsc urls
 	BSCURL        string
 	BSCPrivateKey string
@@ -128,6 +132,21 @@ type TestConfig struct {
 	MscUSDC      string
 	MscNeo       string
 	MscRenBTC    string
+	// ok contracts: auto set after deploy
+	OkEccd      string
+	OkEccm      string
+	OkEccmp     string
+	OkLockProxy string
+	OkErc20     string
+	OkOep4      string
+	OkOngx      string
+	OkOntx      string
+	OkWBTC      string
+	OkUSDT      string
+	OkDai       string
+	OkUSDC      string
+	OkNeo       string
+	OkRenBTC    string
 	// bsc contracts: auto set after deploy
 	BscEccd      string
 	BscEccm      string

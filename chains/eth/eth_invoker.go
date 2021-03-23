@@ -75,6 +75,8 @@ func (ethInvoker *EInvoker) url() string {
 		return ethInvoker.TConfiguration.MSCURL
 	case ethInvoker.TConfiguration.EthChainID:
 		return ethInvoker.TConfiguration.EthURL
+	case ethInvoker.TConfiguration.OkChainID:
+		return ethInvoker.TConfiguration.OKURL
 	default:
 		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
 	}
@@ -88,6 +90,8 @@ func (ethInvoker *EInvoker) privateKey() string {
 		return ethInvoker.TConfiguration.MSCPrivateKey
 	case ethInvoker.TConfiguration.EthChainID:
 		return ethInvoker.TConfiguration.ETHPrivateKey
+	case ethInvoker.TConfiguration.OkChainID:
+		return ethInvoker.TConfiguration.OKPrivateKey
 	default:
 		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
 	}

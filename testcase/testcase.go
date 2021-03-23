@@ -1270,6 +1270,7 @@ func MscMxToMsc(ctx *testframework.TestFrameworkContext, status *testframework.C
 			return false
 		}
 		log.Infof("MscMxToMsc, send %d mx to Msc, waiting for confirmation...", amt)
+
 		WaitUntilClean(status)
 
 		log.Infof("MscMxToMsc, mx all received ( batch: %d )", i)

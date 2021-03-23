@@ -329,7 +329,7 @@ func (self *ETHTools) WaitTransactionConfirm(hash common.Hash) {
 		time.Sleep(time.Millisecond * 100)
 		_, ispending, err := self.ethclient.TransactionByHash(context.Background(), hash)
 		if err != nil {
-			log.Errorf("failed to call TransactionByHash: %v", err)
+			log.Errorf("failed to call TransactionByHash: %v hash:%s", err, hash.String())
 			continue
 		}
 		if ispending == true {
