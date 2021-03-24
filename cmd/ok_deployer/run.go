@@ -127,14 +127,14 @@ func DeployETHSmartContract() {
 	}
 
 	fmt.Println("=============================ETH info=============================")
-	fmt.Println("bsc erc20:", erc20Addr.Hex())
-	fmt.Println("bsc ope4:", oep4Addr.Hex())
-	fmt.Println("bsc eccd address:", eccdAddr.Hex())
-	fmt.Println("bsc eccm address:", eccmAddr.Hex())
-	fmt.Println("bsc eccmp address:", eccmpAddr.Hex())
-	fmt.Println("bsc lock proxy address: ", lockProxyAddr.Hex())
-	fmt.Println("bsc ongx address: ", ongxAddr.Hex())
-	fmt.Println("bsc ontx proxy address: ", ontxAddr.Hex())
+	fmt.Println("ok erc20:", erc20Addr.Hex())
+	fmt.Println("ok ope4:", oep4Addr.Hex())
+	fmt.Println("ok eccd address:", eccdAddr.Hex())
+	fmt.Println("ok eccm address:", eccmAddr.Hex())
+	fmt.Println("ok eccmp address:", eccmpAddr.Hex())
+	fmt.Println("ok lock proxy address: ", lockProxyAddr.Hex())
+	fmt.Println("ok ongx address: ", ongxAddr.Hex())
+	fmt.Println("ok ontx proxy address: ", ontxAddr.Hex())
 	fmt.Println("==================================================================")
 
 	config.DefConfig.OkErc20 = erc20Addr.Hex()

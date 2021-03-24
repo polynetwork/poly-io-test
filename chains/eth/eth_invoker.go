@@ -130,6 +130,7 @@ func (ethInvoker *EInvoker) DeployEthChainDataContract() (ethComm.Address, *eccd
 	if err != nil {
 		return ethComm.Address{}, nil, fmt.Errorf("DeployEthChainDataContract, err: %v", err)
 	}
+
 	ethInvoker.ETHUtil.WaitTransactionConfirm(tx.Hash())
 	return contractAddress, contract, nil
 }
@@ -218,6 +219,8 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 	} else if uint64(toChainId) == config.DefConfig.BscChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.MscChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.OkChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.NeoChainID {
 		other, err := helper.UInt160FromString(toAssetHash)
