@@ -166,6 +166,10 @@ func main() {
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
+		case config.DefConfig.O3ChainID:
+			if RegisterO3(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
+			}
 		case config.DefConfig.MscChainID:
 			if registerMSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
@@ -188,6 +192,9 @@ func main() {
 			}
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
+			}
+			if RegisterO3(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
 			}
 			if registerMSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
@@ -219,6 +226,8 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
 			SyncBSCGenesisHeader(poly, accArr)
+		case config.DefConfig.O3ChainID:
+			SyncO3GenesisHeader(poly, accArr)
 		case config.DefConfig.MscChainID:
 			SyncMSCGenesisHeader(poly, accArr)
 		case 0:
@@ -651,6 +660,99 @@ func SyncMSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
 	tool.WaitTransactionConfirm(tx.Hash())
 	log.Infof("successful to sync poly genesis header to MSC: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.O3URL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+	pEpochHeight := epochHeight - 200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+	phdr, err := tool.GetBlockHeader(pEpochHeight)
+	if err != nil {
+		panic(err)
+	}
+	pvalidators, err := bsc.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+	if len(phdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
+	}
+
+	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
+		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+	}}
+	raw, err := json.Marshal(genesisHeader)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.O3ChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("o3 already synced")
+		} else {
+			panic(fmt.Errorf("SyncO3GenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync o3 genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.O3Eccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.O3PrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncO3GenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to O3: ( txhash: %s )", tx.Hash().String())
 }
 
 func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -1090,6 +1192,46 @@ func registerMSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register msc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterO3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.O3URL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(15)
+	extra := bsc.ExtraInfo{
+		ChainID: chainID,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.O3Eccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterBSC, failed to decode eccd '%s' : %v", config.DefConfig.O3Eccd, err))
+	}
+
+	fmt.Println("config.DefConfig.O3ChainID", config.DefConfig.O3ChainID, "extraBytes", string(extraBytes), "O3Eccd", config.DefConfig.O3Eccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.O3ChainID, 6, "bsc",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("bsc chain %d already registered", config.DefConfig.O3ChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("bsc chain %d already requested", config.DefConfig.O3ChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterBSC failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register o3 chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }

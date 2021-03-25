@@ -382,19 +382,19 @@ func SetOtherLockProxy(invoker *eth.EInvoker) {
 func SetUpEthContracts() {
 	invoker := eth.NewEInvoker(config.DefConfig.O3ChainID)
 	SetupBnb(invoker)
-	if config.DefConfig.Bep20 != "" {
+	if config.DefConfig.O3Erc20 != "" {
 		SetupBep20(invoker)
 	}
 	if config.DefConfig.OntLockProxy != "" {
 		SetupOntAsset(invoker)
 	}
-	if config.DefConfig.BscWBTC != "" {
+	if config.DefConfig.O3WBTC != "" {
 		SetupWBTC(invoker)
 	}
-	if config.DefConfig.BscDai != "" {
+	if config.DefConfig.O3Dai != "" {
 		SetupDAI(invoker)
 	}
-	if config.DefConfig.BscUSDT != "" {
+	if config.DefConfig.O3USDT != "" {
 		SetupUSDT(invoker)
 	}
 
