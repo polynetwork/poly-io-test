@@ -36,6 +36,8 @@ import (
 	"github.com/joeqian10/neo-gogogo/block"
 	"github.com/joeqian10/neo-gogogo/helper/io"
 	"github.com/joeqian10/neo-gogogo/rpc"
+
+	// oksdk "github.com/okex/okexchain-go-sdk"
 	"github.com/ontio/ontology-crypto/keypair"
 	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
@@ -823,51 +825,57 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 }
 
 func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
-	invoker, err := cosmos2.NewCosmosInvoker()
-	if err != nil {
-		panic(err)
-	}
-
-	res, err := invoker.RpcCli.Commit(&config.DefConfig.CMEpoch)
-	if err != nil {
-		panic(err)
-	}
-	vals, err := getValidators(invoker.RpcCli, config.DefConfig.CMEpoch)
-	if err != nil {
-		panic(err)
-	}
-	ch := &cosmos.CosmosHeader{
-		Header:  *res.Header,
-		Commit:  res.Commit,
-		Valsets: vals,
-	}
-	raw, err := invoker.CMCdc.MarshalBinaryBare(ch)
-	if err != nil {
-		panic(err)
-	}
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.CMCrossChainId, raw, accArr)
-	if err != nil {
-		if strings.Contains(err.Error(), "had been initialized") {
-			log.Info("cosmos already synced")
-		} else {
+	if config.DefConfig.CMChainId != "okexchain" {
+		invoker, err := cosmos2.NewCosmosInvoker()
+		if err != nil {
 			panic(err)
 		}
+		res, err := invoker.RpcCli.Commit(&config.DefConfig.CMEpoch)
+		if err != nil {
+			panic(err)
+		}
+		vals, err := getValidators(invoker.RpcCli, config.DefConfig.CMEpoch)
+		if err != nil {
+			panic(err)
+		}
+		ch := &cosmos.CosmosHeader{
+			Header:  *res.Header,
+			Commit:  res.Commit,
+			Valsets: vals,
+		}
+		raw, err := invoker.CMCdc.MarshalBinaryBare(ch)
+		if err != nil {
+			panic(err)
+		}
+		txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.CMCrossChainId, raw, accArr)
+		if err != nil {
+			if strings.Contains(err.Error(), "had been initialized") {
+				log.Info("cosmos already synced")
+			} else {
+				panic(err)
+			}
+		} else {
+			testcase.WaitPolyTx(txhash, poly)
+			log.Infof("successful to sync cosmos genesis header: ( txhash: %s )", txhash.ToHexString())
+		}
+
+		header, err := poly.GetHeaderByHeight(config.DefConfig.RCEpoch)
+		if err != nil {
+			panic(err)
+		}
+
+		tx, err := invoker.SyncPolyGenesisHdr(invoker.Acc.Acc, header.ToArray())
+		if err != nil {
+			panic(err)
+		}
+
+		log.Infof("successful to sync poly genesis header to cosmos: ( txhash: %s )", tx.Hash.String())
 	} else {
-		testcase.WaitPolyTx(txhash, poly)
-		log.Infof("successful to sync cosmos genesis header: ( txhash: %s )", txhash.ToHexString())
+		// config, _ := oksdk.NewClientConfig(config.DefConfig.CMRpcUrl, "okexchain", oksdk.BroadcastBlock, "0.01okt", 20000, 0, "")
+		// oksdk.NewClient(config)
+		log.Infof("to sync to okex")
 	}
 
-	header, err := poly.GetHeaderByHeight(config.DefConfig.RCEpoch)
-	if err != nil {
-		panic(err)
-	}
-
-	tx, err := invoker.SyncPolyGenesisHdr(invoker.Acc.Acc, header.ToArray())
-	if err != nil {
-		panic(err)
-	}
-
-	log.Infof("successful to sync poly genesis header to cosmos: ( txhash: %s )", tx.Hash.String())
 }
 
 func getValidators(rpc *http.HTTP, h int64) ([]*types2.Validator, error) {
