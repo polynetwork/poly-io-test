@@ -1262,6 +1262,24 @@ func EthEthToBscAndBack(ctx *testframework.TestFrameworkContext, status *testfra
 	return true
 }
 
+func O3ToO3(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		if err := SendO3CrossO3(ctx, status, amt); err != nil {
+			log.Errorf("SendO3CrossO3 error: %v", err)
+			return false
+		}
+		log.Infof("O3ToO3, send %d O3 to O3, waiting for confirmation...", amt)
+
+		WaitUntilClean(status)
+
+		log.Infof("O3ToO3, mx all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
 func MscMxToMsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
 	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
 		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)

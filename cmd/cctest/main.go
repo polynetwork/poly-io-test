@@ -65,6 +65,8 @@ func main() {
 		ethInvoker *eth.EInvoker
 		bscInvoker *eth.EInvoker
 		mscInvoker *eth.EInvoker
+		o3Invoker  *eth.EInvoker
+		cmInvoker  *cosmos.CosmosInvoker
 	)
 	if config.DefConfig.EthChainID > 0 {
 		ethInvoker = eth.NewEInvoker(config.DefConfig.EthChainID)
@@ -78,6 +80,10 @@ func main() {
 		mscInvoker = eth.NewEInvoker(config.DefConfig.MscChainID)
 	}
 
+	if config.DefConfig.O3ChainID > 0 {
+		o3Invoker = eth.NewEInvoker(config.DefConfig.O3ChainID)
+	}
+
 	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
 	//	config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
 	//	config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
@@ -89,10 +95,13 @@ func main() {
 	if err != nil {
 		log.Warnf("failed to new a ont invoker, do not test cases about ONT: %v", err)
 	}
-	cmInvoker, err := cosmos.NewCosmosInvoker()
-	if err != nil {
-		log.Warnf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+	if config.DefConfig.CMCrossChainId > 0 {
+		cmInvoker, err = cosmos.NewCosmosInvoker()
+		if err != nil {
+			log.Warnf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+		}
 	}
+
 	neoInvoker, err := neo.NewNeoInvoker()
 	if err != nil {
 		log.Warnf("failed to new a neo invoker, do not test cases about NEO: %v", err)
@@ -111,6 +120,9 @@ func main() {
 	}
 	if mscInvoker != nil {
 		testframework.TFramework.SetMSCInvoker(mscInvoker)
+	}
+	if o3Invoker != nil {
+		testframework.TFramework.SetO3Invoker(o3Invoker)
 	}
 	//testframework.TFramework.SetBtcInvoker(btcInvoker)
 	testframework.TFramework.SetOntInvoker(ontInvoker)
