@@ -591,7 +591,7 @@ func SyncMSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		panic(err)
 	}
 
-	epochHeight := height - height%30000
+	epochHeight := height - height%200
 
 	hdr, err := tool.GetBlockHeader(epochHeight)
 	if err != nil {
@@ -670,17 +670,8 @@ func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 	}
 
 	epochHeight := height - height%200
-	pEpochHeight := epochHeight - 200
 
 	hdr, err := tool.GetBlockHeader(epochHeight)
-	if err != nil {
-		panic(err)
-	}
-	phdr, err := tool.GetBlockHeader(pEpochHeight)
-	if err != nil {
-		panic(err)
-	}
-	pvalidators, err := bsc.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
 	if err != nil {
 		panic(err)
 	}
@@ -688,14 +679,8 @@ func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 	if len(hdr.Extra) <= 65+32 {
 		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
 	}
-	if len(phdr.Extra) <= 65+32 {
-		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
-	}
 
-	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
-		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
-	}}
-	raw, err := json.Marshal(genesisHeader)
+	raw, err := json.Marshal(hdr)
 	if err != nil {
 		panic(err)
 	}
@@ -708,7 +693,7 @@ func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 		}
 	} else {
 		testcase.WaitPolyTx(txhash, poly)
-		log.Infof("successful to sync o3 genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+		log.Infof("successful to sync o3 genesis header to poly: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
 			hdr.Hash().String(), txhash.ToHexString())
 	}
 
@@ -1204,30 +1189,32 @@ func RegisterO3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	}
 
 	blkToWait := uint64(15)
-	extra := bsc.ExtraInfo{
+	extra := msc.ExtraInfo{
 		ChainID: chainID,
+		Period:  3,
+		Epoch:   200,
 	}
 
 	extraBytes, _ := json.Marshal(extra)
 
 	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.O3Eccd, "0x", "", 1))
 	if err != nil {
-		panic(fmt.Errorf("RegisterBSC, failed to decode eccd '%s' : %v", config.DefConfig.O3Eccd, err))
+		panic(fmt.Errorf("RegisterO3, failed to decode eccd '%s' : %v", config.DefConfig.O3Eccd, err))
 	}
 
 	fmt.Println("config.DefConfig.O3ChainID", config.DefConfig.O3ChainID, "extraBytes", string(extraBytes), "O3Eccd", config.DefConfig.O3Eccd)
-	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.O3ChainID, 6, "bsc",
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.O3ChainID, 10, "o3",
 		blkToWait, eccd, extraBytes, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("bsc chain %d already registered", config.DefConfig.O3ChainID)
+			log.Infof("o3 chain %d already registered", config.DefConfig.O3ChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("bsc chain %d already requested", config.DefConfig.O3ChainID)
+			log.Infof("o3 chain %d already requested", config.DefConfig.O3ChainID)
 			return true
 		}
-		panic(fmt.Errorf("RegisterBSC failed: %v", err))
+		panic(fmt.Errorf("RegisterO3 failed: %v", err))
 	}
 
 	testcase.WaitPolyTx(txhash, poly)
