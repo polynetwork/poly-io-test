@@ -219,19 +219,19 @@ func SetupUSDC(ethInvoker *eth.EInvoker) {
 
 func SetupOntAsset(invoker *eth.EInvoker) {
 	if config.DefConfig.O3LockProxy == "" {
-		panic(fmt.Errorf("BscLockProxy is blank"))
+		panic(fmt.Errorf("O3LockProxy is blank"))
 	}
 	if config.DefConfig.O3Ontx == "" {
-		panic(fmt.Errorf("BscOntx is blank"))
+		panic(fmt.Errorf("O3Ontx is blank"))
 	}
 	if config.DefConfig.O3Ongx == "" {
-		panic(fmt.Errorf("BscOngx is blank"))
+		panic(fmt.Errorf("O3Ongx is blank"))
 	}
 	if config.DefConfig.O3Oep4 == "" {
-		panic(fmt.Errorf("BscOep4 is blank"))
+		panic(fmt.Errorf("O3Oep4 is blank"))
 	}
 	if config.DefConfig.OntOep4 == "" {
-		panic(fmt.Errorf("OntOep4 is blank"))
+		return
 	}
 
 	txs, err := invoker.BindOntAsset(config.DefConfig.O3LockProxy, config.DefConfig.O3Ontx, config.DefConfig.O3Ongx,
