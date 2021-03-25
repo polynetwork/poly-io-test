@@ -44,6 +44,7 @@ type TestConfig struct {
 	OntChainID uint64
 	NeoChainID uint64
 	BscChainID uint64
+	O3ChainID  uint64
 	MscChainID uint64
 	OkChainID  uint64
 
@@ -78,6 +79,9 @@ type TestConfig struct {
 	// bsc urls
 	BSCURL        string
 	BSCPrivateKey string
+	// o3 urls
+	O3URL        string
+	O3PrivateKey string
 
 	// ontology
 	OntJsonRpcAddress   string
@@ -162,6 +166,21 @@ type TestConfig struct {
 	BscUSDC      string
 	BscNeo       string
 	BscRenBTC    string
+	// o3 contracts: auto set after deploy
+	O3Eccd      string
+	O3Eccm      string
+	O3Eccmp     string
+	O3LockProxy string
+	O3Erc20     string
+	O3Oep4      string
+	O3Ongx      string
+	O3Ontx      string
+	O3WBTC      string
+	O3USDT      string
+	O3Dai       string
+	O3USDC      string
+	O3Neo       string
+	O3RenBTC    string
 
 	// eth contracts: auto set after deploy
 	EthBnb              string
