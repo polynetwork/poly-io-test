@@ -39,14 +39,15 @@ const (
 
 //Config object used by ontology-instance
 type TestConfig struct {
-	BtcChainID uint64
-	EthChainID uint64
-	OntChainID uint64
-	NeoChainID uint64
-	BscChainID uint64
-	O3ChainID  uint64
-	MscChainID uint64
-	OkChainID  uint64
+	BtcChainID  uint64
+	EthChainID  uint64
+	OntChainID  uint64
+	NeoChainID  uint64
+	BscChainID  uint64
+	HecoChainID uint64
+	O3ChainID   uint64
+	MscChainID  uint64
+	OkChainID   uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -79,6 +80,9 @@ type TestConfig struct {
 	// bsc urls
 	BSCURL        string
 	BSCPrivateKey string
+	// heco urls
+	HecoURL        string
+	HecoPrivateKey string
 	// o3 urls
 	O3URL        string
 	O3PrivateKey string
@@ -166,6 +170,21 @@ type TestConfig struct {
 	BscUSDC      string
 	BscNeo       string
 	BscRenBTC    string
+	// heco contracts: auto set after deploy
+	HecoEccd      string
+	HecoEccm      string
+	HecoEccmp     string
+	HecoLockProxy string
+	HecoErc20     string
+	HecoOep4      string
+	HecoOngx      string
+	HecoOntx      string
+	HecoWBTC      string
+	HecoUSDT      string
+	HecoDai       string
+	HecoUSDC      string
+	HecoNeo       string
+	HecoRenBTC    string
 	// o3 contracts: auto set after deploy
 	O3Eccd      string
 	O3Eccm      string

@@ -77,6 +77,8 @@ func (ethInvoker *EInvoker) url() string {
 		return ethInvoker.TConfiguration.EthURL
 	case ethInvoker.TConfiguration.OkChainID:
 		return ethInvoker.TConfiguration.OKURL
+	case ethInvoker.TConfiguration.HecoChainID:
+		return ethInvoker.TConfiguration.HecoURL
 	case ethInvoker.TConfiguration.O3ChainID:
 		return ethInvoker.TConfiguration.O3URL
 	default:
@@ -94,6 +96,8 @@ func (ethInvoker *EInvoker) privateKey() string {
 		return ethInvoker.TConfiguration.ETHPrivateKey
 	case ethInvoker.TConfiguration.OkChainID:
 		return ethInvoker.TConfiguration.OKPrivateKey
+	case ethInvoker.TConfiguration.HecoChainID:
+		return ethInvoker.TConfiguration.HecoPrivateKey
 	case ethInvoker.TConfiguration.O3ChainID:
 		return ethInvoker.TConfiguration.O3PrivateKey
 	default:
@@ -225,6 +229,8 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 	} else if uint64(toChainId) == config.DefConfig.MscChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.OkChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.HecoChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.O3ChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()

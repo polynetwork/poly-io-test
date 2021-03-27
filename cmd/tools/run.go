@@ -63,6 +63,7 @@ import (
 	"github.com/polynetwork/poly/native/service/governance/side_chain_manager"
 	"github.com/polynetwork/poly/native/service/header_sync/bsc"
 	"github.com/polynetwork/poly/native/service/header_sync/cosmos"
+	"github.com/polynetwork/poly/native/service/header_sync/heco"
 	"github.com/polynetwork/poly/native/service/header_sync/msc"
 	"github.com/polynetwork/poly/native/service/utils"
 	"github.com/tendermint/tendermint/rpc/client/http"
@@ -166,6 +167,10 @@ func main() {
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
+		case config.DefConfig.HecoChainID:
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
+			}
 		case config.DefConfig.O3ChainID:
 			if RegisterO3(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
@@ -192,6 +197,9 @@ func main() {
 			}
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
+			}
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
 			}
 			if RegisterO3(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
@@ -226,6 +234,8 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
 			SyncBSCGenesisHeader(poly, accArr)
+		case config.DefConfig.HecoChainID:
+			SyncHecoGenesisHeader(poly, accArr)
 		case config.DefConfig.O3ChainID:
 			SyncO3GenesisHeader(poly, accArr)
 		case config.DefConfig.MscChainID:
@@ -237,6 +247,7 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 			SyncNeoGenesisHeader(poly, accArr)
 			SyncBSCGenesisHeader(poly, accArr)
+			SyncHecoGenesisHeader(poly, accArr)
 			SyncMSCGenesisHeader(poly, accArr)
 		}
 
@@ -738,6 +749,99 @@ func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
 	tool.WaitTransactionConfirm(tx.Hash())
 	log.Infof("successful to sync poly genesis header to O3: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncHecoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.HecoURL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+	pEpochHeight := epochHeight - 200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+	phdr, err := tool.GetBlockHeader(pEpochHeight)
+	if err != nil {
+		panic(err)
+	}
+	pvalidators, err := heco.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+	if len(phdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
+	}
+
+	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
+		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+	}}
+	raw, err := json.Marshal(genesisHeader)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.HecoChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heco genesis header already synced")
+		} else {
+			panic(fmt.Errorf("SyncHecoGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync heco genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.HecoEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.HecoPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncHecoGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to Heco: ( txhash: %s )", tx.Hash().String())
 }
 
 func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -1259,6 +1363,48 @@ func RegisterO3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register o3 chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterHeco(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.HecoURL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(21)
+	extra := heco.ExtraInfo{
+		ChainID: chainID,
+		Period:  3,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+	log.Errorf("Heco Extra: %+v", extra)
+	log.Errorf("Heco Extra Bytes: %x", extraBytes)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.HecoEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterHeco, failed to decode eccd '%s' : %v", config.DefConfig.HecoEccd, err))
+	}
+
+	fmt.Println("config.DefConfig.HecoChainID: ", config.DefConfig.HecoChainID, "extraBytes: ", string(extraBytes), "HecoEccd: ", config.DefConfig.HecoEccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.HecoChainID, utils.HECO_ROUTER, "heco",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("heco chain %d already registered", config.DefConfig.HecoChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("heco chain %d already requested", config.DefConfig.HecoChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterHeco failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register heco chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
