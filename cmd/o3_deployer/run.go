@@ -163,14 +163,14 @@ func SetupBep20(ethInvoker *eth.EInvoker) {
 		fmt.Printf("binding bep20 of ontology on o3: ( txhash: %s )\n", hash.String())
 	}
 
-	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.O3LockProxy, config.DefConfig.O3Erc20,
-		config.CM_BEP20, config.DefConfig.CMCrossChainId, 0)
-	if err != nil {
-		panic(fmt.Errorf("SetupBep20ToONT, failed to BindAssetHash: %v", err))
-	}
-	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
-	hash := bindTx.Hash()
-	fmt.Printf("binding bep20 of cosmos on o3: ( txhash: %s )\n", hash.String())
+	// bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.O3LockProxy, config.DefConfig.O3Erc20,
+	// 	config.CM_BEP20, config.DefConfig.CMCrossChainId, 0)
+	// if err != nil {
+	// 	panic(fmt.Errorf("SetupBep20ToONT, failed to BindAssetHash: %v", err))
+	// }
+	// ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
+	// hash := bindTx.Hash()
+	// fmt.Printf("binding bep20 of cosmos on o3: ( txhash: %s )\n", hash.String())
 }
 
 func SetupWBTC(ethInvoker *eth.EInvoker) {
@@ -274,18 +274,18 @@ func SetupBnb(ethInvoker *eth.EInvoker) {
 		fmt.Printf("binding bnb of o3 on neo: ( txhash: %s )\n", hash.String())
 	}
 
-	tx, err := ethInvoker.BindAssetHash(config.DefConfig.O3LockProxy, ethNativeAddr, config.CM_BNBX, config.DefConfig.CMCrossChainId, 0)
-	if err != nil {
-		panic(fmt.Errorf("SetupBnb2COSMOS, failed to bind asset hash: %v", err))
-	}
-	hash := tx.Hash()
-	fmt.Printf("binding bnbx of cosmos on o3: ( txhash: %s )\n", hash.String())
+	// tx, err := ethInvoker.BindAssetHash(config.DefConfig.O3LockProxy, ethNativeAddr, config.CM_BNBX, config.DefConfig.CMCrossChainId, 0)
+	// if err != nil {
+	// 	panic(fmt.Errorf("SetupBnb2COSMOS, failed to bind asset hash: %v", err))
+	// }
+	// hash := tx.Hash()
+	// fmt.Printf("binding bnbx of cosmos on o3: ( txhash: %s )\n", hash.String())
 
-	tx, err = ethInvoker.BindAssetHash(config.DefConfig.O3LockProxy, ethNativeAddr, ethNativeAddr, config.DefConfig.BscChainID, 0)
+	tx, err := ethInvoker.BindAssetHash(config.DefConfig.O3LockProxy, ethNativeAddr, ethNativeAddr, config.DefConfig.BscChainID, 0)
 	if err != nil {
 		panic(fmt.Errorf("BindAssetHash, failed to bind asset hash: %v", err))
 	}
-	hash = tx.Hash()
+	hash := tx.Hash()
 	fmt.Printf("binding bnb of o3 on bsc: ( txhash: %s )\n", hash.String())
 }
 
