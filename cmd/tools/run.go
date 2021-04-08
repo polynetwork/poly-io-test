@@ -629,7 +629,7 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		fmt.Println("wait current tx block got generated")
 		latestTxBlockNum, _ := strconv.ParseUint(latestTxBlock.Header.BlockNum, 10, 64)
 		fmt.Printf("latest tx block num is: %d, current tx block num is: %d", latestTxBlockNum, currentTxBlockNum)
-		if latestTxBlockNum > currentTxBlockNum {
+		if latestTxBlockNum == currentTxBlockNum {
 			break
 		}
 		time.Sleep(time.Second * 20)
@@ -1603,18 +1603,11 @@ func RegisterZIL(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 	numOfGuardList := 0
 	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
-	networkId, err := zilSdk.GetNetworkId()
+	dsComm, err := zilSdk.GetCurrentDSComm()
 	if err != nil {
 		panic(fmt.Errorf("RegisterZIL failed: %s", err.Error()))
 	}
-
-	if networkId == "111" {
-		numOfGuardList = 9
-	} else if networkId == "333" {
-		// todo impl this
-	} else if networkId == "1" {
-		// todo impl this
-	}
+	numOfGuardList = dsComm.NumOfDSGuard
 
 	fmt.Println("register zil")
 	blkToWait := uint64(15)
