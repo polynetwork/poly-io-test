@@ -3,7 +3,7 @@ module github.com/polynetwork/poly-io-test
 go 1.14
 
 require (
-	github.com/Zilliqa/gozilliqa-sdk v1.2.1-0.20210303070214-e9f060dd9677
+	github.com/Zilliqa/gozilliqa-sdk v1.2.1-0.20210406170702-178fd8166bae
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/cosmos/cosmos-sdk v0.39.1

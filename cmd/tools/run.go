@@ -28,6 +28,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Zilliqa/gozilliqa-sdk/account"
 	"github.com/Zilliqa/gozilliqa-sdk/core"
@@ -587,79 +588,42 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	}
 
 	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
+	initDsComm, _ := zilSdk.GetCurrentDSComm()
+	currentTxBlockNum, _ := strconv.ParseUint(initDsComm.CurrentTxEpoch, 10, 64)
+	fmt.Printf("current tx block number is %s, ds block number is %s, number of ds guard is: %d\n", initDsComm.CurrentTxEpoch, initDsComm.CurrentDSEpoch, initDsComm.NumOfDSGuard)
+
+	for {
+		latestTxBlock, _ := zilSdk.GetLatestTxBlock()
+		fmt.Println("wait current tx block got generated")
+		latestTxBlockNum, _ := strconv.ParseUint(latestTxBlock.Header.BlockNum, 10, 64)
+		fmt.Printf("latest tx block num is: %d, current tx block num is: %d", latestTxBlockNum, currentTxBlockNum)
+		if latestTxBlockNum > currentTxBlockNum {
+			break
+		}
+		time.Sleep(time.Second * 20)
+	}
+
 	networkId, err := zilSdk.GetNetworkId()
 	if err != nil {
 		panic(fmt.Errorf("SyncZILGenesisHeader failed: %s", err.Error()))
 	}
 
 	var dsComm []core.PairOfNode
-	var initDsBlockNum string
-	var initTxBlockNum string
-
-	// for devnet
-	if networkId == "111" {
-
-		initDsBlockNum = "1"
-		initTxBlockNum = "1"
-
-		ipAndAddr, _ := new(big.Int).SetString("3672036406", 10)
-		dsComm = []core.PairOfNode{
-			{
-				PubKey: "02105342331FCD7CA95648DF8C5373C596982544F35E90849B1E619DFC59F03D48",
-			},
-			{
-				PubKey: "021D439D1CCCAE17C3D6E855BC78E96438C808D16D1CBF8D7ABD391E41CEE9B1BF",
-			},
-			{
-				PubKey: "021EDDE95598F5F59708D2E728E00EDB2ECF278C16BD389384320B1AF998DCC2FD",
-			},
-			{
-				PubKey: "02445FE498E7FBB240BDF9185EB5E7642AF1AF36852D1E132E198A222FBAC617A0",
-			},
-			{
-				PubKey: "0256EC4BC62FB56C83A3F6160E67499A9E381CF7A613EBF34B9ECDB9E64171DDF4",
-			},
-			{
-				PubKey: "0264D991762D81DD6557BCB33EC8AA3F621B4CB790852F2231C864921387B76862",
-			},
-			{
-				PubKey: "027A00916BDD3CF954ED13A0494BFB73FF95BF28C54004F2749F1A8E8CC1AB5B3D",
-			},
-			{
-				PubKey: "0297C693FBEBAF397CBDE616F605920EF70D7F6E5EC8DD82E71AE1E812E5E0B303",
-			},
-			{
-				PubKey: "02AE5ADF63E9161000713987B5EBB490B5E6B57CF5B7F9799B4AB907BA19D468F6",
-			},
-			{
-				PubKey: "0374A5CA5D76BEE5A1DE132AE72184AB084D23EC7A4867CCD562C58405BBB663E2",
-				Peer: core.Peer{
-					IpAddress:      ipAndAddr,
-					ListenPortHost: 33133,
-				},
-			},
-		}
+	for _, ds := range initDsComm.DSComm {
+		dsComm = append(dsComm, core.PairOfNode{
+			PubKey: ds,
+		})
 	}
 
-	// for testnet
-	if networkId == "333" {
-		// todo impl this
-	}
-
-	// for mainnet
-	if networkId == "1" {
-		// todo impl this
-	}
-
-	dsBlockT, err := zilSdk.GetDsBlockVerbose(initDsBlockNum)
+	dsBlockT, err := zilSdk.GetDsBlockVerbose(initDsComm.CurrentDSEpoch)
 	if err != nil {
-		panic(fmt.Errorf("SyncZILGenesisHeader get ds block 1 failed: %s", err.Error()))
+		panic(fmt.Errorf("SyncZILGenesisHeader get ds block %s failed: %s", initDsComm.CurrentDSEpoch, err.Error()))
 	}
 	dsBlock := core.NewDsBlockFromDsBlockT(dsBlockT)
 
-	txBlockT, err := zilSdk.GetTxBlockVerbose(initTxBlockNum)
+	txBlockT, err := zilSdk.GetTxBlockVerbose(initDsComm.CurrentTxEpoch)
 	if err != nil {
-		panic(fmt.Errorf("SyncZILGenesisHeader get tx block 1 failed: %s", err.Error()))
+		panic(fmt.Errorf("SyncZILGenesisHeader get tx block %s failed: %s", initDsComm.CurrentTxEpoch, err.Error()))
 	}
 
 	txBlock := core.NewTxBlockFromTxBlockT(txBlockT)
