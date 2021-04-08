@@ -629,7 +629,7 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		fmt.Println("wait current tx block got generated")
 		latestTxBlockNum, _ := strconv.ParseUint(latestTxBlock.Header.BlockNum, 10, 64)
 		fmt.Printf("latest tx block num is: %d, current tx block num is: %d", latestTxBlockNum, currentTxBlockNum)
-		if latestTxBlockNum == currentTxBlockNum {
+		if latestTxBlockNum >= currentTxBlockNum {
 			break
 		}
 		time.Sleep(time.Second * 20)

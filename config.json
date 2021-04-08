@@ -21,6 +21,7 @@
 	"ZilPrivateKey": "",
 	"ZilEccdProxy": "",
 	"ZilEccdImpl": "",
+	"ZilLockProxy": "",
 	"OntJsonRpcAddress": "http://ontology:20336",
 	"OntWallet": ".wallets/ont_dev.dat",
 	"OntWalletPassword": "admin",
