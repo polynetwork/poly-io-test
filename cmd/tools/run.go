@@ -178,6 +178,7 @@ func main() {
 		case config.DefConfig.ZilChainID:
 			if RegisterZIL(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
+			}
 		case config.DefConfig.HecoChainID:
 			if RegisterHeco(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
@@ -211,17 +212,17 @@ func main() {
 			}
 			if RegisterZIL(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
-			if RegisterHeco(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
-			}
-			if RegisterO3(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
-			}
-			if registerMSC(poly, acc) {
-				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
+				if RegisterHeco(poly, acc) {
+					ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
+				}
+				if RegisterO3(poly, acc) {
+					ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
+				}
+				if registerMSC(poly, acc) {
+					ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
+				}
 			}
 		}
-
 	case "sync_genesis_header":
 		wArr := strings.Split(pWalletFiles, ",")
 		pArr := strings.Split(pPwds, ",")
@@ -903,7 +904,7 @@ func SyncHecoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Acco
 		panic(err)
 	}
 
-  epochHeight := height - height%200
+	epochHeight := height - height%200
 	pEpochHeight := epochHeight - 200
 
 	hdr, err := tool.GetBlockHeader(epochHeight)

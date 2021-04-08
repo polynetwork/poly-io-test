@@ -39,17 +39,12 @@ const (
 
 //Config object used by ontology-instance
 type TestConfig struct {
-	BtcChainID uint64
-	EthChainID uint64
-	OntChainID uint64
-	NeoChainID uint64
-	BscChainID uint64
-	ZilChainID uint64
 	BtcChainID  uint64
 	EthChainID  uint64
 	OntChainID  uint64
 	NeoChainID  uint64
 	BscChainID  uint64
+	ZilChainID  uint64
 	HecoChainID uint64
 	O3ChainID   uint64
 	MscChainID  uint64
