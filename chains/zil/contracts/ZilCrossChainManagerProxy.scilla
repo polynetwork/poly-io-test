@@ -1,0 +1,145 @@
+scilla_version 0
+
+import Polynetwork
+
+library ZilCrossChainManagerProxy
+
+
+let zero = Uint128 0
+
+let one_msg =
+  fun (m: Message) =>
+    let e = Nil {Message} in
+    Cons {Message} m e
+
+contract ZilCrossChainManagerProxy(
+  init_crosschain_manager : ByStr20,
+  init_admin: ByStr20
+)
+
+(* Mutable fields *)
+field crosschain_manager: ByStr20 = init_crosschain_manager
+field admin: ByStr20 = init_admin
+field stagingadmin: Option ByStr20 = None {ByStr20}
+
+(***************************************************)
+(*                  Transition                     *)
+(***************************************************)
+
+(***************************************************)
+(*              Proxy Transition                   *)
+(***************************************************)
+transition UpgradeTo(new_crosschain_manager: ByStr20)
+    currentAdmin <- admin;
+    isAdmin = builtin eq currentAdmin _sender;
+    match isAdmin with
+    | True =>
+      crosschain_manager := new_crosschain_manager;
+      e = {_eventname: "Upgraded"; new_crosschain_manager: new_crosschain_manager};
+      event e
+    | False =>
+      e = {_eventname: "upgradeTo FailedNotAdmin"; new_crosschain_manager: new_crosschain_manager};
+      event e
+    end
+end
+
+transition ChangeProxyAdmin(newAdmin: ByStr20)
+    currentAdmin <- admin;
+    isAdmin = builtin eq currentAdmin _sender;
+    match isAdmin with
+    | True =>
+      new_staging_admin = Some {ByStr20} newAdmin;
+      stagingadmin := new_staging_admin;
+      e = {_eventname: "ChangeProxyAdmin"; oldAdmin: currentAdmin; newAdmin: newAdmin};
+      event e
+    | False =>
+      e = {_eventname: "ChangeProxyAdmin FailedNotAdmin"; newAdmin: newAdmin};
+      event e
+    end
+end
+
+transition ClaimProxyAdmin()
+    staging_admin_o <- stagingadmin;
+    match staging_admin_o with
+    | Some staging_admin =>
+      is_stagingadmin = builtin eq staging_admin _sender;
+      match is_stagingadmin with
+      | True =>
+        admin := _sender;
+        tmp_staging_admin = None {ByStr20};
+        stagingadmin := tmp_staging_admin;
+        e = {_eventname: "ClaimProxyAdmin"; newAdmin: _sender};
+        event e
+      | False =>
+        e = {_eventname: "ClaimProxyAdmin FailedNotStagingadmin"; newAdmin: _sender};
+        event e
+      end
+    | None =>
+      e = {_eventname: "ClaimProxyAdmin FailedNoStagingadmin"};
+      event e
+    end
+end
+
+(***************************************************)
+(*            House keeping transition             *)
+(***************************************************)
+
+transition Pause()
+  current_impl <- crosschain_manager;
+  msg = {_tag: "Pause"; _recipient: current_impl; _amount: zero; initiator: _sender};
+  msgs = one_msg msg;
+  send msgs
+end
+
+transition UnPause()
+  current_impl <- crosschain_manager;
+  msg = {_tag: "UnPause"; _recipient: current_impl; _amount: zero; initiator: _sender};
+  msgs = one_msg msg;
+  send msgs
+end
+
+transition UpdateAdmin(newAdmin: ByStr20)
+  current_impl <- crosschain_manager;
+  msg = {_tag: "UpdateAdmin"; _recipient: current_impl; _amount: zero; initiator: _sender; newAdmin: newAdmin};
+  msgs = one_msg msg;
+  send msgs
+end
+
+transition ClaimAdmin()
+    current_impl <- crosschain_manager;
+    msg = {_tag: "ClaimAdmin"; _recipient: current_impl; _amount: zero; initiator: _sender};
+    msgs = one_msg msg;
+    send msgs
+end
+
+(***************************************************)
+(*             Cross chain transition              *)
+(***************************************************)
+
+transition InitGenesisBlock(rawHeader: ByStr, pubkeys: List Pubkey)
+  current_impl <- crosschain_manager;
+  msg = {_tag: "InitGenesisBlock"; _recipient: current_impl; _amount: zero; rawHeader: rawHeader; pubkeys: pubkeys};
+  msgs = one_msg msg;
+  send msgs
+end
+
+transition ChangeBookKeeper(rawHeader: ByStr, pubkeys: List Pubkey, sigList: List Signature)
+  current_impl <- crosschain_manager;
+  msg = {_tag: "ChangeBookKeeper"; _recipient: current_impl; _amount: zero; rawHeader: rawHeader; pubkeys: pubkeys; sigList: sigList};
+  msgs = one_msg msg;
+  send msgs
+end
+
+transition CrossChain(toChainId: Uint64, toContract: ByStr, method: ByStr, txData: ByStr)
+  current_impl <- crosschain_manager;
+  msg = {_tag: "CrossChain"; _recipient: current_impl; _amount: zero; toChainId: toChainId; toContract: toContract; method: method; txData: txData; originContractAddr: _sender};
+  msgs = one_msg msg;
+  send msgs
+end
+
+transition VerifyHeaderAndExecuteTx(proof: Proof, rawHeader: ByStr, headerProof: Proof, curRawHeader: ByStr, headerSig: List Signature)
+  current_impl <- crosschain_manager;
+  msg = {_tag: "VerifyHeaderAndExecuteTx"; _recipient: current_impl; _amount: zero; proof: proof; rawHeader: rawHeader; headerProof: headerProof; curRawHeader: curRawHeader; headerSig: headerSig};
+  msgs = one_msg msg;
+  send msgs
+end

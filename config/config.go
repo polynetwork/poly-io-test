@@ -44,6 +44,7 @@ type TestConfig struct {
 	OntChainID  uint64
 	NeoChainID  uint64
 	BscChainID  uint64
+	ZilChainID  uint64
 	HecoChainID uint64
 	O3ChainID   uint64
 	MscChainID  uint64
@@ -86,6 +87,10 @@ type TestConfig struct {
 	// o3 urls
 	O3URL        string
 	O3PrivateKey string
+
+	// zil urls
+	ZilURL        string
+	ZilPrivateKey string
 
 	// ontology
 	OntJsonRpcAddress   string
@@ -200,6 +205,11 @@ type TestConfig struct {
 	O3USDC      string
 	O3Neo       string
 	O3RenBTC    string
+
+	// zil contracts
+	ZilEccdProxy string
+	ZilEccdImpl  string
+	ZilLockProxy string
 
 	// eth contracts: auto set after deploy
 	EthBnb              string
