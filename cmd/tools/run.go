@@ -621,15 +621,17 @@ func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 
 	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
 	initDsComm, _ := zilSdk.GetCurrentDSComm()
-	currentTxBlockNum, _ := strconv.ParseUint(initDsComm.CurrentTxEpoch, 10, 64)
+	// as its name suggest, the tx epoch is actually a future tx block
+	// zilliqa side has this limitation to avoid some risk that no tx block got mined yet
+	nextTxEpoch, _ := strconv.ParseUint(initDsComm.CurrentTxEpoch, 10, 64)
 	fmt.Printf("current tx block number is %s, ds block number is %s, number of ds guard is: %d\n", initDsComm.CurrentTxEpoch, initDsComm.CurrentDSEpoch, initDsComm.NumOfDSGuard)
 
 	for {
 		latestTxBlock, _ := zilSdk.GetLatestTxBlock()
 		fmt.Println("wait current tx block got generated")
 		latestTxBlockNum, _ := strconv.ParseUint(latestTxBlock.Header.BlockNum, 10, 64)
-		fmt.Printf("latest tx block num is: %d, current tx block num is: %d", latestTxBlockNum, currentTxBlockNum)
-		if latestTxBlockNum >= currentTxBlockNum {
+		fmt.Printf("latest tx block num is: %d, current tx block num is: %d", latestTxBlockNum, nextTxEpoch)
+		if latestTxBlockNum >= nextTxEpoch {
 			break
 		}
 		time.Sleep(time.Second * 20)
