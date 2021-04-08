@@ -212,15 +212,15 @@ func main() {
 			}
 			if RegisterZIL(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
-				if RegisterHeco(poly, acc) {
-					ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
-				}
-				if RegisterO3(poly, acc) {
-					ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
-				}
-				if registerMSC(poly, acc) {
-					ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
-				}
+			}
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
+			}
+			if RegisterO3(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
+			}
+			if registerMSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
 			}
 		}
 	case "sync_genesis_header":
