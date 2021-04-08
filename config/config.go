@@ -45,6 +45,15 @@ type TestConfig struct {
 	NeoChainID uint64
 	BscChainID uint64
 	ZilChainID uint64
+	BtcChainID  uint64
+	EthChainID  uint64
+	OntChainID  uint64
+	NeoChainID  uint64
+	BscChainID  uint64
+	HecoChainID uint64
+	O3ChainID   uint64
+	MscChainID  uint64
+	OkChainID   uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -67,9 +76,22 @@ type TestConfig struct {
 	EthURL        string
 	ETHPrivateKey string
 
+	// msc urls
+	MSCURL        string
+	MSCPrivateKey string
+
+	// ok urls
+	OKURL        string
+	OKPrivateKey string
 	// bsc urls
 	BSCURL        string
 	BSCPrivateKey string
+	// heco urls
+	HecoURL        string
+	HecoPrivateKey string
+	// o3 urls
+	O3URL        string
+	O3PrivateKey string
 
 	// zil urls
 	ZilURL        string
@@ -113,6 +135,36 @@ type TestConfig struct {
 	// Circle batch
 	TxNumPerBatch uint64
 
+	// msc contracts: auto set after deploy
+	MscEccd      string
+	MscEccm      string
+	MscEccmp     string
+	MscLockProxy string
+	Mep20        string
+	MscOep4      string
+	MscOngx      string
+	MscOntx      string
+	MscWBTC      string
+	MscUSDT      string
+	MscDai       string
+	MscUSDC      string
+	MscNeo       string
+	MscRenBTC    string
+	// ok contracts: auto set after deploy
+	OkEccd      string
+	OkEccm      string
+	OkEccmp     string
+	OkLockProxy string
+	OkErc20     string
+	OkOep4      string
+	OkOngx      string
+	OkOntx      string
+	OkWBTC      string
+	OkUSDT      string
+	OkDai       string
+	OkUSDC      string
+	OkNeo       string
+	OkRenBTC    string
 	// bsc contracts: auto set after deploy
 	BscEccd      string
 	BscEccm      string
@@ -128,6 +180,36 @@ type TestConfig struct {
 	BscUSDC      string
 	BscNeo       string
 	BscRenBTC    string
+	// heco contracts: auto set after deploy
+	HecoEccd      string
+	HecoEccm      string
+	HecoEccmp     string
+	HecoLockProxy string
+	HecoErc20     string
+	HecoOep4      string
+	HecoOngx      string
+	HecoOntx      string
+	HecoWBTC      string
+	HecoUSDT      string
+	HecoDai       string
+	HecoUSDC      string
+	HecoNeo       string
+	HecoRenBTC    string
+	// o3 contracts: auto set after deploy
+	O3Eccd      string
+	O3Eccm      string
+	O3Eccmp     string
+	O3LockProxy string
+	O3Erc20     string
+	O3Oep4      string
+	O3Ongx      string
+	O3Ontx      string
+	O3WBTC      string
+	O3USDT      string
+	O3Dai       string
+	O3USDC      string
+	O3Neo       string
+	O3RenBTC    string
 
 	// zil contracts
 	ZilEccdProxy string

@@ -325,11 +325,16 @@ func (self *ETHTools) WaitTransactionsConfirm(hashs []common.Hash) {
 }
 
 func (self *ETHTools) WaitTransactionConfirm(hash common.Hash) {
+	start := time.Now()
 	for {
 		time.Sleep(time.Millisecond * 100)
+		if time.Now().After(start.Add(time.Second * 10)) {
+			log.Errorf("WaitTransactionConfirm max wait time exceeded, quit")
+			return
+		}
 		_, ispending, err := self.ethclient.TransactionByHash(context.Background(), hash)
 		if err != nil {
-			log.Errorf("failed to call TransactionByHash: %v", err)
+			log.Errorf("failed to call TransactionByHash: %v hash:%s", err, hash.String())
 			continue
 		}
 		if ispending == true {
