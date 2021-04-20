@@ -1,0 +1,477 @@
+scilla_version 0
+
+import Polynetwork BoolUtils
+
+library ZilCrossChainManager
+
+let nullAddress = 0x0000000000000000000000000000000000000000
+
+let one_msg =
+  fun (msg : Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
+
+let bool_active = True
+let bool_inactive = False
+
+
+type Error =
+  | ContractFrozenFailure
+  | ConPubKeysAlreadyInitialized
+  | ErrorDeserializeHeader
+  | NextBookersIllegal
+  | SignatureVerificationFailed
+  | HeaderLowerOrBookKeeperEmpty
+  | InvalidMerkleProof
+  | IncorrectMerkleProof
+  | MerkleProofDeserializeFailed
+  | AddressFormatMismatch
+  | WrongTransaction
+  | TransactionAlreadyExecuted
+  | TransactionHashInvalid
+  | AdminValidationFailed
+  | ProxyValidationFailed
+  | StagingAdminValidationFailed
+  | StagingAdminNotExist
+
+let make_error =
+  fun (result: Error) =>
+    let result_code =
+      match result with
+      | ContractFrozenFailure => Int32 -1
+      | ConPubKeysAlreadyInitialized => Int32 -2
+      | ErrorDeserializeHeader => Int32 -3
+      | NextBookersIllegal => Int32 -4
+      | SignatureVerificationFailed => Int32 -5
+      | HeaderLowerOrBookKeeperEmpty => Int32 -6
+      | InvalidMerkleProof => Int32 -7
+      | IncorrectMerkleProof => Int32 -8
+      | MerkleProofDeserializeFailed => Int32 -9
+      | AddressFormatMismatch => Int32 -10
+      | WrongTransaction => Int32 -11
+      | TransactionAlreadyExecuted => Int32 -12
+      | TransactionHashInvalid => Int32 -13
+      | AdminValidationFailed => Int32 -14
+      | ProxyValidationFailed => Int32 -15
+      | StagingAdminValidationFailed => Int32 -16
+      | StagingAdminNotExist => Int32 -17
+      end
+    in
+    { _exception: "Error"; code: result_code }
+(***************************************************)
+(*             The contract definition             *)
+(***************************************************)
+contract ZilCrossChainManager(
+  this_chain_id : Uint64,
+  init_proxy_address: ByStr20,
+  init_admin: ByStr20
+)
+
+field paused: Bool = True
+(* When Poly chain switches the consensus epoch book keepers, *)
+(* the consensus peers public keys of Poly chain should be    *)
+(* changed into no-compressed version so that solidity smart  *)
+(* contract can convert it to address type and verify the     *)
+(* signature derived from Poly chain account signature.       *)
+(* conKeepersPublicKeyList means Consensus book Keepers       *)
+(* Public Key List                                            *)
+field conKeepersPublicKeyList: List ByStr20 = Nil {ByStr20}
+(* Current Epoch Start Height of Poly chain block *)
+field curEpochStartHeight: Uint32 = Uint32 0
+(* Zilliqa cross chain tx hash indexed by the automatically increased index.  *)
+(* This map exists for the reason that Poly chain can verify the existence of *)
+(* cross chain request tx coming from Zilliqa *)
+field zilToPolyTxHashMap: Map Uint256 ByStr32 = Emp Uint256 ByStr32
+(* This index records the current Map length *)
+field zilToPolyTxHashIndex: Uint256 = Uint256 0
+(* Record the from chain txs that have been processed *)
+field fromChainTxExist : Map Uint64 (Map ByStr32 Unit) = Emp Uint64 (Map ByStr32 Unit)
+field contractadmin: ByStr20  = init_admin
+field stagingcontractadmin: Option ByStr20 = None {ByStr20}
+
+
+(* Procedures *)
+
+procedure ThrowError(err: Error)
+  e = make_error err;
+  throw e
+end
+
+procedure IsProxy()
+  is_proxy = builtin eq _sender init_proxy_address;
+  match is_proxy with
+  | True  =>
+  | False =>
+    e = ProxyValidationFailed;
+    ThrowError e
+  end
+end
+
+procedure IsNotPaused()
+  paused_tmp <- paused;
+  match paused_tmp with
+  | False =>
+  | True  =>
+    e = ContractFrozenFailure;
+    ThrowError e
+  end
+end
+
+procedure IsAdmin(initiator: ByStr20)
+  contractadmin_tmp <- contractadmin;
+  is_admin = builtin eq initiator contractadmin_tmp;
+  match is_admin with
+  | True  =>
+  | False =>
+    e = AdminValidationFailed;
+    ThrowError e
+  end
+end
+
+procedure verifyPubkeysAndUpdate(pubkeys: List Pubkey, h_nextBookkeeper: ByStr20, h_height: Uint32)
+  nextbookkeeper_keepers = verifyPubkey pubkeys;
+    match nextbookkeeper_keepers with
+    | Pair nextBookKeeper keepers =>
+      (* Ensure that Header's nextBookKeeper is same as the one from verifyPubkey *)
+      nbk_eq = builtin eq nextBookKeeper h_nextBookkeeper;
+      match nbk_eq with
+      | True =>
+        curEpochStartHeight := h_height;
+        conKeepersPublicKeyList := keepers
+      | False =>
+        e = NextBookersIllegal;
+        ThrowError e
+      end
+    end
+end
+
+procedure executeCrossChainTxn (txparam: TxParam, fromChainId: Uint64, crossChainTxHash: ByStr)
+  match txparam with
+  | TxParam txHash crossChainID fromContract toChainID toContract method args =>
+    toChainIDOk = builtin eq toChainID this_chain_id;
+    match toChainIDOk with
+    | True =>
+      toContractAddr_o = builtin to_bystr20 toContract;
+      match toContractAddr_o with
+      | Some toContractAddr =>
+        method_name = builtin to_ascii method;
+        m = { _tag : method_name; args : args;
+             fromContractAddr : fromContract;
+             fromChainId : fromChainId;
+             _amount : Uint128 0;
+             _recipient : toContractAddr };
+        mo = one_msg m;
+        send mo;
+        e = { _eventname : "VerifyHeaderAndExecuteTxEvent";
+             fromChainId : fromChainId;
+             toContractAddr : toContractAddr;
+             crossChainTxHash : crossChainTxHash;
+             fromChainTxHash : txHash
+        };
+        event e
+      | None =>
+        e = AddressFormatMismatch;
+        ThrowError e
+      end
+    | False =>
+      e = WrongTransaction;
+      ThrowError e
+    end
+  end
+end
+
+procedure updateZilTxHash(txHashIndex : Uint256, rawParamHash : ByStr32)
+  zilToPolyTxHashMap[txHashIndex] := rawParamHash;
+  one_uint256 = Uint256 1;
+  newTxHashIndex = builtin add txHashIndex one_uint256;
+  zilToPolyTxHashIndex := newTxHashIndex
+end
+
+procedure checkAndMarkFromChainTxn(chainID : Uint64, txHash : ByStr)
+  txHash32_o = builtin to_bystr32 txHash;
+  match txHash32_o with
+  | Some txHash32 =>
+    already_exists <- exists fromChainTxExist[chainID][txHash32];
+    match already_exists with
+    | True =>
+      e = TransactionAlreadyExecuted;
+      ThrowError e
+    | False =>
+      fromChainTxExist[chainID][txHash32] := unit
+    end
+  | None =>
+    e = TransactionHashInvalid;
+    ThrowError e
+  end
+end
+
+(***************************************************)
+(*                  Transition                     *)
+(***************************************************)
+
+(***************************************************)
+(*            House keeping transition             *)
+(***************************************************)
+
+(* @dev: Start a proposal for new contract admin. Used by admin only. *)
+(* @param admin: New admin value *)
+(* @param initiator: The original caller who called the proxy. *)
+transition UpdateAdmin(newAdmin: ByStr20, initiator: ByStr20)
+  IsProxy;
+  IsAdmin initiator;
+  staging_admin = Some {ByStr20} newAdmin;
+  stagingcontractadmin := staging_admin
+end
+
+(* @dev: Claim to be the new admin of contract. *)
+(* @param initiator: The original caller who called the proxy. *)
+transition ClaimAdmin(initiator: ByStr20)
+  IsProxy;
+  staging_admin <- stagingcontractadmin;
+  match staging_admin with
+  | Some admin =>
+    is_valid = builtin eq initiator admin;
+    match is_valid with
+    | True =>
+      contractadmin := admin;
+      staging_admin = None {ByStr20};
+      stagingcontractadmin := staging_admin;
+      e = { _eventname: "ClaimAdmin"; new_admin: admin };
+      event e
+    | False =>
+      e = StagingAdminValidationFailed;
+      ThrowError e
+    end
+  | None =>
+    e = StagingAdminNotExist;
+    ThrowError e
+  end
+end
+
+(* @dev: pause the contract. Used by admin only.               *)
+(* @param initiator: The original caller who called the proxy. *)
+transition Pause(initiator: ByStr20)
+  IsProxy;
+  IsAdmin initiator;
+  paused := bool_active
+end
+
+(* @dev: unpause/unfreeze the contract. Used by admin only.    *)
+(* @param initiator: The original caller who called the proxy. *)
+transition UnPause(initiator: ByStr20)
+  IsProxy;
+  IsAdmin initiator;
+  paused := bool_inactive
+end
+
+(***************************************************)
+(*             Cross chain transition              *)
+(***************************************************)
+
+(* @dev:  sync Poly chain genesis block header to smart contrat. *)
+(* @param rawHeader: Poly chain genesis block raw header or raw  *)
+(*        Header including switching consensus peers info        *)
+(* @param pubkeys:  Poly chain consensus nodes public key list.  *)
+transition InitGenesisBlock(rawHeader: ByStr, pubkeys: List Pubkey)
+  IsProxy;
+  IsNotPaused;
+  current_keepers_o <- conKeepersPublicKeyList;
+  match current_keepers_o with
+  | Nil =>
+    header_o = deserialize_Header rawHeader zero_uint32;
+    match header_o with
+    | Some
+      (Pair
+        (Header h_version h_chainid h_prevBlockHash h_txnroot h_crossStatesRoot
+                h_blockRoot h_timestamp h_height h_consensusData h_consensusPayload
+                h_nextBookkeeper)
+        nextpos)
+      =>
+        verifyPubkeysAndUpdate pubkeys h_nextBookkeeper h_height;
+        e = { _eventname : "GenesisBlock"; height : h_height; header : rawHeader };
+        event e
+    | None =>
+      e = ErrorDeserializeHeader;
+      ThrowError e
+    end
+  | Cons _ _ =>
+    e = ConPubKeysAlreadyInitialized;
+    ThrowError e
+  end
+end
+
+(* @dev:  change Poly chain consensus book keeper. *)
+(* @param rawHeader: Poly chain change book keeper block raw header *)
+(* @param pubkeys:  Poly chain consensus nodes public key list. *)
+(* @param sigList:  Poly chain consensus nodes signature list.  *)
+transition ChangeBookKeeper(rawHeader: ByStr, pubkeys: List Pubkey, sigList: List Signature)
+  IsProxy;
+  IsNotPaused;
+  header_o = deserialize_Header rawHeader zero_uint32;
+  curStartHeight <- curEpochStartHeight;
+  match header_o with
+  | Some
+      (Pair
+        (Header h_version h_chainid h_prevBlockHash h_txnroot h_crossStatesRoot
+                h_blockRoot h_timestamp h_height h_consensusData h_consensusPayload
+                h_nextBookkeeper)
+        nextpos)
+    =>
+      heightOk = builtin lt curStartHeight h_height;
+      nextBookKeeperOk = let b = builtin eq h_nextBookkeeper nullAddress in negb b;
+      both_ok = andb heightOk nextBookKeeperOk;
+      match both_ok with
+      | True =>
+        curKeepers <- conKeepersPublicKeyList;
+        n = lengther_address curKeepers;
+        m = compute_m n;
+        signed = verifySig rawHeader sigList curKeepers m;
+        match signed with
+        | True =>
+          verifyPubkeysAndUpdate pubkeys h_nextBookkeeper h_height;
+          e = { _eventname : "ChangeBookKeeper"; height : h_height; header : rawHeader };
+          event e
+        | False =>
+          e = SignatureVerificationFailed;
+          ThrowError e
+        end
+      | False =>
+        e = HeaderLowerOrBookKeeperEmpty;
+        ThrowError e
+      end
+   | None =>
+     e = ErrorDeserializeHeader;
+     ThrowError e
+  end
+end
+
+(* @dev: ZRC2 token cross chain to other blockchain. this function                   *)
+(*       push tx event to blockchain                                                 *)
+(* @param toChainId: Target chain id                                                 *)
+(* @param toContract: Target smart contract address in target block chain.           *)
+(* @param method:  Method to call target smart contract                              *)
+(* @param txData: Transaction data for target chain, include to_address, amount.     *)
+transition CrossChain(toChainId: Uint64, toContract: ByStr, method: ByStr, txData: ByStr, originContractAddr: ByStr20)
+  IsProxy;
+  IsNotPaused;
+  txHashIndex <- zilToPolyTxHashIndex;
+  paramTxHash = let b = builtin to_bystr32 txHashIndex in builtin to_bystr b;
+  crossChainId =
+    let this_bs = builtin to_bystr _this_address in
+    let s = builtin concat this_bs paramTxHash in
+    let h = builtin sha256hash s in
+    builtin to_bystr h;
+  fromContract = builtin to_bystr originContractAddr;
+  txp = TxParam paramTxHash crossChainId fromContract toChainId toContract method txData;
+  (* Serialize the TxParam object *)
+  empty_bystr = let b = 0x in builtin to_bystr b;
+  rawParam = append_TxParam empty_bystr txp;
+  rawParamHash = builtin keccak256hash rawParam;
+  updateZilTxHash txHashIndex rawParamHash;
+  (* todo: original caller *)
+  e = { _eventname : "CrossChainEvent";
+       sender : _origin;
+       txId : paramTxHash;
+       proxyOrAssetContract : _sender;
+       toChainId : toChainId;
+       toContract : toContract;
+       rawdata : rawParam };
+  event e
+end
+
+(* @dev:  Verify Poly chain header and proof, execute the cross chain tx                       *)
+(*        from Poly chain to Zilliqa.                                                         *)
+(* @param proof: Poly chain tx merkle proof.                                                   *)
+(* @param rawHeader: The header containing crossStateRoot to verify the above tx merkle proof. *)
+(* @param headerProof:   The header merkle proof used to verify rawHeader                      *)
+(* @param curRawHeader:  Any header in current epoch consensus of Poly chain                   *)
+(* @param headerSig: The coverted signature veriable for solidity derived from Poly chain      *)
+(*                   consensus nodes signature  used to verify the validity of curRawHeader    *)
+transition VerifyHeaderAndExecuteTx(proof: Proof, rawHeader: ByStr, headerProof: Proof, curRawHeader: ByStr, headerSig: List Signature)
+  IsProxy;
+  IsNotPaused;
+  header_o = deserialize_Header rawHeader zero_uint32;
+  curKeepers <- conKeepersPublicKeyList;
+  curStartHeight <- curEpochStartHeight;
+  n = lengther_address curKeepers;
+  m = compute_m n;
+  match header_o with
+  | Some
+      (Pair
+        (Header h_version h_chainid h_prevBlockHash h_txnroot h_crossStatesRoot
+                h_blockRoot h_timestamp h_height h_consensusData h_consensusPayload
+                h_nextBookkeeper)
+        nextpos)
+    =>
+      is_lt = builtin lt h_height curStartHeight;
+      match is_lt with
+      | True =>
+        signed = verifySig curRawHeader headerSig curKeepers m;
+        match signed with
+        | True =>
+          curHeader_o = deserialize_Header curRawHeader zero_uint32;
+          match curHeader_o with
+          | Some (Pair
+                    (Header h_version h_chainid h_prevBlockHash h_txnroot h_crossStatesRoot
+                    h_blockRoot h_timestamp h_height h_consensusData h_consensusPayload
+                    h_nextBookkeeper)
+                    nextpos)
+            =>
+              proof_o = merkle_prove headerProof h_blockRoot;
+              match proof_o with
+              | Some proveValue =>
+                proveValue32_o = builtin to_bystr32 proveValue;
+                match proveValue32_o with
+                | Some proveValue32 =>
+                  headerHash = get_header_hash rawHeader;
+                  proof_ok = builtin eq headerHash proveValue32;
+                  match proof_ok with
+                  | True =>     (* Do nothing *)
+                  | False =>
+                    e = InvalidMerkleProof;
+                    ThrowError e
+                  end
+                | None =>
+                  e = IncorrectMerkleProof;
+                  ThrowError e
+                end
+              | None =>
+              end
+          | None =>
+            e = ErrorDeserializeHeader;
+            ThrowError e
+          end
+        | False =>
+          e = SignatureVerificationFailed;
+          ThrowError e
+        end
+      | False =>
+        signed = verifySig rawHeader headerSig curKeepers m;
+        match signed with
+        | True =>               (* Do nothing *)
+        | False =>
+          e = SignatureVerificationFailed;
+          ThrowError e
+        end
+      end;
+      toMerkleValueBs_o = merkle_prove proof h_crossStatesRoot;
+      match toMerkleValueBs_o with
+      | Some toMerkleValueBs =>
+        toMerkleValue_o = deserialize_ToMerkleValue toMerkleValueBs zero_uint32;
+        match toMerkleValue_o with
+        | Some (Pair (ToMerkleValue txhash fromChainId txparam) _) =>
+          checkAndMarkFromChainTxn fromChainId txhash;
+          executeCrossChainTxn txparam fromChainId txhash
+        | None =>
+          e = MerkleProofDeserializeFailed;
+          ThrowError e
+        end
+      | None =>
+        e = InvalidMerkleProof;
+        ThrowError e
+      end
+   | None =>
+     e = ErrorDeserializeHeader;
+     ThrowError e
+  end
+end

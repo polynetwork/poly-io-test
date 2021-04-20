@@ -3,6 +3,7 @@ module github.com/polynetwork/poly-io-test
 go 1.14
 
 require (
+	github.com/Zilliqa/gozilliqa-sdk v1.2.1-0.20210406170702-178fd8166bae
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/cosmos/cosmos-sdk v0.39.1
@@ -30,6 +31,6 @@ require (
 
 replace github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20210115072359-e4cac6edc20c
 
-replace github.com/polynetwork/poly => github.com/zhiqiangxu/poly v0.0.0-20201216075543-df86073d2575
+replace github.com/polynetwork/poly => github.com/zhiqiangxu/poly v0.0.0-20210315055227-f937bd40dbe9
 
 replace github.com/polynetwork/poly-go-sdk => github.com/zhiqiangxu/poly-go-sdk v0.0.0-20201215024222-5d728b68e651

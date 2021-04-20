@@ -2307,6 +2307,113 @@ func SendEthCrossNeo(ctx *testframework.TestFrameworkContext, status *testframew
 	return nil
 }
 
+func SendO3CrossO3(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.O3Invoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, get suggest gas price failed error: %s", err.Error())
+	}
+
+	//gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, abi.JSON error:" + err.Error())
+	}
+	rawFrom := ctx.O3Invoker.EthTestSigner.Address.Bytes()
+	assetaddress := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.O3ChainID), rawFrom[:],
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, contractabi.Pack error:" + err.Error())
+	}
+
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.O3LockProxy)
+	callMsg := ethereum.CallMsg{
+		From: ctx.O3Invoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(amount)), Data: txData,
+	}
+	gasLimit, err := ctx.O3Invoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.O3Invoker.NM.GetAddressNonce(ctx.O3Invoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.O3Invoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.O3Invoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendO3CrossO3, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"O3CrossO3", time.Now()})
+	WaitTransactionConfirm(ctx.O3Invoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
+func SendMxCrossMsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
+	gasPrice, err := ctx.MscInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, get suggest gas price failed error: %s", err.Error())
+	}
+	//gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, abi.JSON error:" + err.Error())
+	}
+	rawFrom := ctx.MscInvoker.EthTestSigner.Address.Bytes()
+	assetaddress := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.MscChainID), rawFrom[:],
+		big.NewInt(int64(amount)))
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, contractabi.Pack error:" + err.Error())
+	}
+
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.MscLockProxy)
+	callMsg := ethereum.CallMsg{
+		From: ctx.MscInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(int64(amount)), Data: txData,
+	}
+	gasLimit, err := ctx.MscInvoker.ETHUtil.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, estimate gas limit error: %s", err.Error())
+	}
+
+	nonce := ctx.MscInvoker.NM.GetAddressNonce(ctx.MscInvoker.EthTestSigner.Address)
+	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
+	bf := new(bytes.Buffer)
+	rlp.Encode(bf, tx)
+
+	rawtx := hexutil.Encode(bf.Bytes())
+	unsignedTx, err := eth.DeserializeTx(rawtx)
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, eth.DeserializeTx error: %s", err.Error())
+	}
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.MscInvoker.EthTestSigner.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, types.SignTx error: %s", err.Error())
+	}
+
+	err = ctx.MscInvoker.ETHUtil.GetEthClient().SendTransaction(context.Background(), signedtx)
+	if err != nil {
+		return fmt.Errorf("SendMxCrossMsc, send transaction error:%s", err.Error())
+	}
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"MxCrossMsc", time.Now()})
+	WaitTransactionConfirm(ctx.MscInvoker.ETHUtil.GetEthClient(), signedtx.Hash())
+	return nil
+}
+
 func SendBnbCrossBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
 	gasPrice, err := ctx.BscInvoker.ETHUtil.GetEthClient().SuggestGasPrice(context.Background())
 	if err != nil {
