@@ -1255,7 +1255,7 @@ func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Acco
 		return fmt.Errorf("NewNeo3Invoker err: %v", err)
 	}
 	// build script
-	scriptHash, err := helper3.UInt160FromString(config.DefConfig.NeoCCMC) // hex string in little endian
+	scriptHash, err := helper3.UInt160FromString(config.DefConfig.Neo3CCMC) // big endian
 	if err != nil {
 		return fmt.Errorf("neo3 ccmc conversion error: %s", err)
 	}
