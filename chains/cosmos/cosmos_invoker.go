@@ -19,6 +19,11 @@ package cosmos
 import (
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/btcsuite/btcutil"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/mintkey"
@@ -28,7 +33,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ontio/ontology-go-sdk"
+	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/polynetwork/cosmos-poly-module/btcx"
 	"github.com/polynetwork/cosmos-poly-module/headersync"
@@ -39,11 +44,7 @@ import (
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/rpc/client/http"
-	"github.com/tendermint/tendermint/rpc/core/types"
-	"io/ioutil"
-	"strings"
-	"sync"
-	"time"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 type CosmosInvoker struct {
@@ -78,6 +79,10 @@ func NewCosmosInvoker() (*CosmosInvoker, error) {
 		return nil, err
 	}
 	invoker.CMCdc = NewCodec()
+	// okexchain doesn't use cosmos account
+	if conf.CMChainId == "okexchain" {
+		return invoker, nil
+	}
 
 	invoker.Acc, err = NewCosmosAcc(conf.CMWalletPath, conf.CMWalletPwd, invoker.RpcCli, invoker.CMCdc)
 	if err != nil {
