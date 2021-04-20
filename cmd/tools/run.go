@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/joeqian10/neo-gogogo/sc"
+	"github.com/polynetwork/poly-io-test/chains/neo3"
 	"math/big"
 	"os"
 	"strconv"
@@ -45,7 +47,14 @@ import (
 	"github.com/joeqian10/neo-gogogo/helper/io"
 	"github.com/joeqian10/neo-gogogo/rpc"
 
-	// oksdk "github.com/okex/okexchain-go-sdk"
+	block3 "github.com/joeqian10/neo3-gogogo/block"
+	crypto3 "github.com/joeqian10/neo3-gogogo/crypto"
+	helper3 "github.com/joeqian10/neo3-gogogo/helper"
+	io3 "github.com/joeqian10/neo3-gogogo/io"
+	rpc3 "github.com/joeqian10/neo3-gogogo/rpc"
+	sc3 "github.com/joeqian10/neo3-gogogo/sc"
+	tx3 "github.com/joeqian10/neo3-gogogo/tx"
+
 	"github.com/ontio/ontology-crypto/keypair"
 	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
@@ -167,6 +176,10 @@ func main() {
 			if RegisterNeoChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
 			}
+		case config.DefConfig.Neo3ChainID:
+			if RegisterNeo3Chain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.Neo3ChainID, poly, accArr)
+			}
 		case config.DefConfig.CMCrossChainId:
 			if RegisterCosmos(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
@@ -207,6 +220,9 @@ func main() {
 			if RegisterNeoChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
 			}
+			if RegisterNeo3Chain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.Neo3ChainID, poly, accArr)
+			}
 			if RegisterBSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
 			}
@@ -244,6 +260,7 @@ func main() {
 			SyncOntGenesisHeader(poly, accArr)
 		case config.DefConfig.NeoChainID:
 			SyncNeoGenesisHeader(poly, accArr)
+			SyncNeo3GenesisHeader(poly, accArr)
 		case config.DefConfig.CMCrossChainId:
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
@@ -262,6 +279,7 @@ func main() {
 			SyncOntGenesisHeader(poly, accArr)
 			SyncCosmosGenesisHeader(poly, accArr)
 			SyncNeoGenesisHeader(poly, accArr)
+			SyncNeo3GenesisHeader(poly, accArr)
 			SyncBSCGenesisHeader(poly, accArr)
 			SyncZILGenesisHeader(poly, accArr)
 			SyncHecoGenesisHeader(poly, accArr)
@@ -284,6 +302,12 @@ func main() {
 		accArr := getPolyAccounts(poly)
 		if UpdateNeo(poly, acc) {
 			ApproveUpdateChain(config.DefConfig.NeoChainID, poly, accArr)
+		}
+
+	case "update_neo3":
+		accArr := getPolyAccounts(poly)
+		if UpdateNeo3(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.Neo3ChainID, poly, accArr)
 		}
 
 	case "init_ont_acc":
@@ -1163,6 +1187,112 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	return nil
 }
 
+func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
+	cli := rpc3.NewClient(config.DefConfig.Neo3Url)
+	resp := cli.GetBlockHeader(strconv.Itoa(int(config.DefConfig.Neo3Epoch)))
+	if resp.HasError() {
+		return fmt.Errorf("failed to get header: %v", resp.Error.Message)
+	}
+	header, err := block3.NewBlockHeaderFromRPC(&resp.Result)
+	if err != nil {
+		return err
+	}
+	buf := io3.NewBufBinaryWriter()
+	header.Serialize(buf.BinaryWriter)
+	if buf.Err != nil {
+		return buf.Err
+	}
+
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.Neo3ChainID, buf.Bytes(), accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("neo3 already synced")
+		} else {
+			panic(fmt.Errorf("SyncNeoGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+	// start sync poly header to neo3 side chain
+	if config.DefConfig.Neo3Wallet == "" {
+		log.Infof("neo wallet empty, won't sync poly header to neo ccmc")
+		return nil
+	}
+	polyHeader, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		return fmt.Errorf("poly.GetHeader(%d) to be synced to neo as genesis err; %v", config.DefConfig.RCEpoch, err)
+	}
+
+	cp1 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: polyHeader.Header.GetMessage(),
+	}
+	// public keys
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(polyHeader.Header.ConsensusPayload, info); err != nil {
+		return fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err)
+	}
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+	cp2 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: publickeys,
+	}
+
+	invoker, err := neo3.NewNeo3Invoker()
+	if err != nil {
+		return fmt.Errorf("NewNeo3Invoker err: %v", err)
+	}
+	// build script
+	scriptHash, err := helper3.UInt160FromString(config.DefConfig.NeoCCMC) // hex string in little endian
+	if err != nil {
+		return fmt.Errorf("neo3 ccmc conversion error: %s", err)
+	}
+
+	script, err := sc3.MakeScript(scriptHash, "InitGenesisBlock", []interface{}{cp1, cp2})
+	if err != nil {
+		return fmt.Errorf("neo3 sc.MakeScript error: %s", err)
+	}
+
+	balancesGas, err := invoker.GetAccountAndBalance(tx3.GasToken)
+	if err != nil {
+		return fmt.Errorf("neo3 GetAccountAndBalance error: %s", err)
+	}
+
+	// make transaction
+	trx, err := invoker.MakeTransaction(script, nil, []tx3.ITransactionAttribute{}, balancesGas)
+	if err != nil {
+		return fmt.Errorf("neo3 MakeTransaction error: %s", err)
+	}
+
+	// sign transaction
+	trx, err = invoker.SignTransaction(trx, config.DefConfig.Neo3Magic)
+	if err != nil {
+		return fmt.Errorf("neo3 SignTransaction error: %s", err)
+	}
+	rawTxString := crypto3.Base64Encode(trx.ToByteArray())
+
+	// send the raw transaction
+	response:= invoker.Client.SendRawTransaction(rawTxString)
+	if response.HasError() {
+		return fmt.Errorf("initGenesisBlock on neo3, SendRawTx err: %v", err)
+	}
+	log.Infof("sync poly header to neo3 as genesis, neo3TxHash: %s", trx.GetHash().String())
+
+	return nil
+}
+
 func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
 
 	invoker, err := cosmos2.NewCosmosInvoker()
@@ -1404,6 +1534,31 @@ func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	}
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register neo chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	neo3Ccmc, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.Neo3CCMC, "0x"))
+	if err != nil {
+		panic(fmt.Errorf("RegisterNeoChain, failed to decode Neo3CCMC '%s': %v", config.DefConfig.Neo3CCMC, err))
+	}
+	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.NeoChainID, 11, "NEO3",
+		blkToWait, neo3Ccmc[:], acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("neo3 chain %d already registered", config.DefConfig.Neo3ChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("neo3 chain %d already requested", config.DefConfig.Neo3ChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterNeo3Chain failed: %v", err))
+	}
+	testcase.WaitPolyTx(txHash, poly)
+	log.Infof("successful to register neo3 chain, txHash: %s", txHash.ToHexString())
 
 	return true
 }
@@ -1717,6 +1872,20 @@ func UpdateNeo(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	}
 	if err = updateSideChain(poly, acc, config.DefConfig.NeoChainID, 4, blkToWait, "NEO", eccd[:]); err != nil {
 		log.Errorf("failed to update neo: %v", err)
+		return false
+	}
+	return true
+}
+
+func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	neo3Ccmc, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.Neo3CCMC, "0x"))
+	if err != nil {
+		log.Errorf("failed to decode Neo3CCMC: %v", err)
+		return false
+	}
+	if err = updateSideChain(poly, acc, config.DefConfig.NeoChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+		log.Errorf("failed to update neo3: %v", err)
 		return false
 	}
 	return true

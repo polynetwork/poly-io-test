@@ -43,6 +43,8 @@ type TestConfig struct {
 	EthChainID  uint64
 	OntChainID  uint64
 	NeoChainID  uint64
+	Neo3ChainID uint64
+	BscChainID  uint64
 	BscChainID  uint64
 	ZilChainID  uint64
 	HecoChainID uint64
@@ -115,6 +117,14 @@ type TestConfig struct {
 	NeoUrl   string
 	NeoWif   string
 	NeoEpoch uint32
+
+	// neo3 chain
+	Neo3Url            string
+	Neo3Wallet         string
+	Neo3Pwd            string
+	Neo3Magic          uint32
+	Neo3AddressVersion byte
+	Neo3Epoch          uint32
 
 	// relayer chain
 	RCWallet             string
@@ -254,6 +264,16 @@ type TestConfig struct {
 	NeoOntd      string
 	NeoBnb       string
 	NeoEth       string
+
+	// neo3 contracts
+	Neo3CCMC      string
+	Neo3LockProxy string
+	Neo3Ont       string
+	Neo3Ontd      string
+	Neo3Bnb       string
+	Neo3Eth       string
+	Neo3Ht        string
+	Neo3Hrc20     string
 
 	// cosmos
 	CMLockProxy string
