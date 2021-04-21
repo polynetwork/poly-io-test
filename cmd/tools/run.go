@@ -1210,11 +1210,11 @@ func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Acco
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("neo3 already synced")
 		} else {
-			panic(fmt.Errorf("SyncNeoGenesisHeader failed: %v", err))
+			panic(fmt.Errorf("SyncNeo3GenesisHeader failed: %v", err))
 		}
 	} else {
 		testcase.WaitPolyTx(txhash, poly)
-		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
+		log.Infof("successful to sync neo3 genesis header: ( txhash: %s )", txhash.ToHexString())
 	}
 
 	// start sync poly header to neo3 side chain
