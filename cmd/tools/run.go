@@ -24,13 +24,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/joeqian10/neo-gogogo/sc"
-	"github.com/polynetwork/poly-io-test/chains/neo3"
 	"math/big"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joeqian10/neo-gogogo/sc"
+	"github.com/polynetwork/poly-io-test/chains/neo3"
 
 	"github.com/Zilliqa/gozilliqa-sdk/account"
 	"github.com/Zilliqa/gozilliqa-sdk/core"
@@ -260,6 +261,7 @@ func main() {
 			SyncOntGenesisHeader(poly, accArr)
 		case config.DefConfig.NeoChainID:
 			SyncNeoGenesisHeader(poly, accArr)
+		case config.DefConfig.Neo3ChainID:
 			SyncNeo3GenesisHeader(poly, accArr)
 		case config.DefConfig.CMCrossChainId:
 			SyncCosmosGenesisHeader(poly, accArr)
@@ -1284,7 +1286,7 @@ func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Acco
 	rawTxString := crypto3.Base64Encode(trx.ToByteArray())
 
 	// send the raw transaction
-	response:= invoker.Client.SendRawTransaction(rawTxString)
+	response := invoker.Client.SendRawTransaction(rawTxString)
 	if response.HasError() {
 		return fmt.Errorf("initGenesisBlock on neo3, SendRawTx err: %v", err)
 	}
@@ -1544,7 +1546,7 @@ func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool
 	if err != nil {
 		panic(fmt.Errorf("RegisterNeoChain, failed to decode Neo3CCMC '%s': %v", config.DefConfig.Neo3CCMC, err))
 	}
-	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.NeoChainID, 11, "NEO3",
+	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
 		blkToWait, neo3Ccmc[:], acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
