@@ -45,7 +45,6 @@ type TestConfig struct {
 	NeoChainID  uint64
 	Neo3ChainID uint64
 	BscChainID  uint64
-	BscChainID  uint64
 	ZilChainID  uint64
 	HecoChainID uint64
 	O3ChainID   uint64
