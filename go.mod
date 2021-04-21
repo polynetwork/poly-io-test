@@ -34,3 +34,6 @@ replace github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts
 replace github.com/polynetwork/poly => github.com/zhiqiangxu/poly v0.0.0-20210315055227-f937bd40dbe9
 
 replace github.com/polynetwork/poly-go-sdk => github.com/zhiqiangxu/poly-go-sdk v0.0.0-20201215024222-5d728b68e651
+
+//replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
+
