@@ -1818,7 +1818,7 @@ func SendNeoCrossBsc(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -1882,7 +1882,7 @@ func SendNeoCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -1942,7 +1942,7 @@ func SendNeoCrossOnt(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -2230,7 +2230,7 @@ func SendNOntCrossOnt(ctx *testframework.TestFrameworkContext, status *testframe
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -2761,7 +2761,7 @@ func SendNEthCrossEth(ctx *testframework.TestFrameworkContext, status *testframe
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -3067,7 +3067,7 @@ func SendNOntdCrossOnt(ctx *testframework.TestFrameworkContext, status *testfram
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
@@ -3129,7 +3129,7 @@ func SendNOntdCrossEth(ctx *testframework.TestFrameworkContext, status *testfram
 	if err != nil {
 		return err
 	}
-	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, helper.UInt160{}, helper.Zero, helper.Zero)
 	if err != nil {
 		return err
 	}
