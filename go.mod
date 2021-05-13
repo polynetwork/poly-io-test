@@ -12,7 +12,7 @@ require (
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/cosmos/cosmos-sdk v0.39.2
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.25
+	github.com/ethereum/go-ethereum v1.9.15
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/golang/mock v1.5.0 // indirect
@@ -51,10 +51,3 @@ replace github.com/polynetwork/poly => github.com/zhiqiangxu/poly v0.0.0-2021031
 replace github.com/polynetwork/poly-go-sdk => github.com/zhiqiangxu/poly-go-sdk v0.0.0-20201215024222-5d728b68e651
 
 //replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
-
-replace (
-	github.com/cosmos/cosmos-sdk => github.com/okex/cosmos-sdk v0.39.2-exchain3
-	github.com/ethereum/go-ethereum => github.com/zhiqiangxu/go-ethereum v0.0.0-20210513053854-b16fac27e406
-	github.com/tendermint/iavl => github.com/okex/iavl v0.14.3-exchain
-	github.com/tendermint/tendermint => github.com/okex/tendermint v0.33.9-exchain2
-)
