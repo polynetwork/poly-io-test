@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"strconv"
@@ -205,6 +206,10 @@ func main() {
 			if registerMSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
 			}
+		case config.DefConfig.OkChainID:
+			if registerOK(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
+			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
@@ -238,6 +243,9 @@ func main() {
 			}
 			if registerMSC(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
+			}
+			if registerOK(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
 			}
 		}
 	case "sync_genesis_header":
@@ -275,6 +283,8 @@ func main() {
 			SyncO3GenesisHeader(poly, accArr)
 		case config.DefConfig.MscChainID:
 			SyncMSCGenesisHeader(poly, accArr)
+		case config.DefConfig.OkChainID:
+			SyncOKGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -286,6 +296,7 @@ func main() {
 			SyncZILGenesisHeader(poly, accArr)
 			SyncHecoGenesisHeader(poly, accArr)
 			SyncMSCGenesisHeader(poly, accArr)
+			SyncOKGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
@@ -845,6 +856,73 @@ func SyncMSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
 	tool.WaitTransactionConfirm(tx.Hash())
 	log.Infof("successful to sync poly genesis header to MSC: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.OKURL)
+
+	rawHex, err := ioutil.ReadFile("raw.hex")
+	if err != nil {
+		panic(fmt.Sprintf("ReadFile error:%v", err))
+	}
+	raw, err := hex.DecodeString(string(rawHex))
+	if err != nil {
+		panic(fmt.Sprintf("DecodeString error:%v", err))
+	}
+
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.OkChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("msc already synced")
+		} else {
+			panic(fmt.Errorf("SyncMSCGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync msc genesis header to poly: (txhash: %s )",
+			txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.OkEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.OKPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncOKGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	log.Infof("successful to sync poly genesis header to OK: ( txhash: %s )", tx.Hash().String())
 }
 
 func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -1626,6 +1704,34 @@ func registerMSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register msc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func registerOK(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.OkEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerMSC, failed to decode eccd '%s' : %v", config.DefConfig.OkEccd, err))
+	}
+
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.OkChainID, 12, "ok",
+		blkToWait, eccd, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("ok chain %d already registered", config.DefConfig.OkChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("ok chain %d already requested", config.DefConfig.OkChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerOK failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register ok chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
