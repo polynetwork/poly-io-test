@@ -4,8 +4,7 @@
 .alliance-wallets/*
 .vscode
 report/*
-config-*.json
+*.json
 test.go
 fisco_sdk.toml
 *.yaml
-config.json
