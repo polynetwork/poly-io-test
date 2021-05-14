@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/joeqian10/neo-gogogo/sc"
-	"github.com/polynetwork/poly-io-test/chains/neo3"
 	"math/big"
 	"os"
 	"strconv"
@@ -48,13 +46,9 @@ import (
 	"github.com/joeqian10/neo-gogogo/rpc"
 
 	block3 "github.com/joeqian10/neo3-gogogo/block"
-	crypto3 "github.com/joeqian10/neo3-gogogo/crypto"
 	helper3 "github.com/joeqian10/neo3-gogogo/helper"
 	io3 "github.com/joeqian10/neo3-gogogo/io"
 	rpc3 "github.com/joeqian10/neo3-gogogo/rpc"
-	sc3 "github.com/joeqian10/neo3-gogogo/sc"
-	tx3 "github.com/joeqian10/neo3-gogogo/tx"
-
 	"github.com/ontio/ontology-crypto/keypair"
 	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
@@ -1202,94 +1196,102 @@ func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Acco
 	if buf.Err != nil {
 		return buf.Err
 	}
+	//// concatenate state validator to genesis header bytes
+	//sv, err := crypto3.AddressToScriptHash(config.DefConfig.Neo3StateValidator, helper3.DefaultAddressVersion)
+	//if err != nil {
+	//	return err
+	//}
+	//extra := append([]byte{0x14}, sv.ToByteArray()...)
+	//bs := buf.Bytes()
+	//bs = append(bs, extra...)
 
 	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.Neo3ChainID, buf.Bytes(), accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("neo3 already synced")
 		} else {
-			panic(fmt.Errorf("SyncNeoGenesisHeader failed: %v", err))
+			panic(fmt.Errorf("SyncNeo3GenesisHeader failed: %v", err))
 		}
 	} else {
 		testcase.WaitPolyTx(txhash, poly)
-		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
+		log.Infof("successful to sync neo3 genesis header: ( txhash: %s )", txhash.ToHexString())
 	}
 
-	// start sync poly header to neo3 side chain
-	if config.DefConfig.Neo3Wallet == "" {
-		log.Infof("neo wallet empty, won't sync poly header to neo ccmc")
-		return nil
-	}
-	polyHeader, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
-	if err != nil {
-		return fmt.Errorf("poly.GetHeader(%d) to be synced to neo as genesis err; %v", config.DefConfig.RCEpoch, err)
-	}
-
-	cp1 := sc.ContractParameter{
-		Type:  sc.ByteArray,
-		Value: polyHeader.Header.GetMessage(),
-	}
-	// public keys
-	info := &vconfig.VbftBlockInfo{}
-	if err := json.Unmarshal(polyHeader.Header.ConsensusPayload, info); err != nil {
-		return fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err)
-	}
-	var bookkeepers []keypair.PublicKey
-	for _, peer := range info.NewChainConfig.Peers {
-		keystr, _ := hex.DecodeString(peer.ID)
-		key, _ := keypair.DeserializePublicKey(keystr)
-		bookkeepers = append(bookkeepers, key)
-	}
-	bookkeepers = keypair.SortPublicKeys(bookkeepers)
-	publickeys := make([]byte, 0)
-	for _, key := range bookkeepers {
-		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
-	}
-	cp2 := sc.ContractParameter{
-		Type:  sc.ByteArray,
-		Value: publickeys,
-	}
-
-	invoker, err := neo3.NewNeo3Invoker()
-	if err != nil {
-		return fmt.Errorf("NewNeo3Invoker err: %v", err)
-	}
-	// build script
-	scriptHash, err := helper3.UInt160FromString(config.DefConfig.Neo3CCMC) // big endian
-	if err != nil {
-		return fmt.Errorf("neo3 ccmc conversion error: %s", err)
-	}
-
-	script, err := sc3.MakeScript(scriptHash, "InitGenesisBlock", []interface{}{cp1, cp2})
-	if err != nil {
-		return fmt.Errorf("neo3 sc.MakeScript error: %s", err)
-	}
-
-	balancesGas, err := invoker.GetAccountAndBalance(tx3.GasToken)
-	if err != nil {
-		return fmt.Errorf("neo3 GetAccountAndBalance error: %s", err)
-	}
-
-	// make transaction
-	trx, err := invoker.MakeTransaction(script, nil, []tx3.ITransactionAttribute{}, balancesGas)
-	if err != nil {
-		return fmt.Errorf("neo3 MakeTransaction error: %s", err)
-	}
-
-	// sign transaction
-	trx, err = invoker.SignTransaction(trx, config.DefConfig.Neo3Magic)
-	if err != nil {
-		return fmt.Errorf("neo3 SignTransaction error: %s", err)
-	}
-	rawTxString := crypto3.Base64Encode(trx.ToByteArray())
-
-	// send the raw transaction
-	response:= invoker.Client.SendRawTransaction(rawTxString)
-	if response.HasError() {
-		return fmt.Errorf("initGenesisBlock on neo3, SendRawTx err: %v", err)
-	}
-	log.Infof("sync poly header to neo3 as genesis, neo3TxHash: %s", trx.GetHash().String())
-
+	//// start sync poly header to neo3 side chain
+	//if config.DefConfig.Neo3Wallet == "" {
+	//	log.Infof("neo3 wallet empty, won't sync poly header to neo3 ccmc")
+	//	return nil
+	//}
+	//polyHeader, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	//if err != nil {
+	//	return fmt.Errorf("poly.GetHeader(%d) to be synced to neo3 as genesis err: %v", config.DefConfig.RCEpoch, err)
+	//}
+	//
+	//cp1 := sc.ContractParameter{
+	//	Type:  sc.ByteArray,
+	//	Value: polyHeader.Header.GetMessage(),
+	//}
+	//// public keys
+	//info := &vconfig.VbftBlockInfo{}
+	//if err := json.Unmarshal(polyHeader.Header.ConsensusPayload, info); err != nil {
+	//	return fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err)
+	//}
+	//var bookkeepers []keypair.PublicKey
+	//for _, peer := range info.NewChainConfig.Peers {
+	//	keystr, _ := hex.DecodeString(peer.ID)
+	//	key, _ := keypair.DeserializePublicKey(keystr)
+	//	bookkeepers = append(bookkeepers, key)
+	//}
+	//bookkeepers = keypair.SortPublicKeys(bookkeepers)
+	//publickeys := make([]byte, 0)
+	//for _, key := range bookkeepers {
+	//	publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	//}
+	//cp2 := sc.ContractParameter{
+	//	Type:  sc.ByteArray,
+	//	Value: publickeys,
+	//}
+	//
+	//invoker, err := neo3.NewNeo3Invoker()
+	//if err != nil {
+	//	return fmt.Errorf("NewNeo3Invoker err: %v", err)
+	//}
+	//// build script
+	//scriptHash, err := helper3.UInt160FromString(config.DefConfig.Neo3CCMC) // big endian
+	//if err != nil {
+	//	return fmt.Errorf("neo3 ccmc conversion error: %s", err)
+	//}
+	//
+	//script, err := sc3.MakeScript(scriptHash, "InitGenesisBlock", []interface{}{cp1, cp2})
+	//if err != nil {
+	//	return fmt.Errorf("neo3 sc.MakeScript error: %s", err)
+	//}
+	//
+	//balancesGas, err := invoker.GetAccountAndBalance(tx3.GasToken)
+	//if err != nil {
+	//	return fmt.Errorf("neo3 GetAccountAndBalance error: %s", err)
+	//}
+	//
+	//// make transaction
+	//trx, err := invoker.MakeTransaction(script, nil, []tx3.ITransactionAttribute{}, balancesGas)
+	//if err != nil {
+	//	return fmt.Errorf("neo3 MakeTransaction error: %s", err)
+	//}
+	//
+	//// sign transaction
+	//trx, err = invoker.SignTransaction(trx, config.DefConfig.Neo3Magic)
+	//if err != nil {
+	//	return fmt.Errorf("neo3 SignTransaction error: %s", err)
+	//}
+	//rawTxString := crypto3.Base64Encode(trx.ToByteArray())
+	//
+	//// send the raw transaction
+	//response := invoker.Client.SendRawTransaction(rawTxString)
+	//if response.HasError() {
+	//	return fmt.Errorf("initGenesisBlock on neo3, SendRawTx err: %v", err)
+	//}
+	//log.Infof("sync poly header to neo3 as genesis, neo3TxHash: %s", trx.GetHash().String())
+	//
 	return nil
 }
 
@@ -1436,7 +1438,6 @@ func ApproveRegisterSideChain(id uint64, poly *poly_go_sdk.PolySdk, accArr []*po
 		txhash common.Uint256
 		err    error
 	)
-
 	for i, a := range accArr {
 		txhash, err = poly.Native.Scm.ApproveRegisterSideChain(id, a)
 		if err != nil {
@@ -1540,9 +1541,9 @@ func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 
 func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	blkToWait := uint64(1)
-	neo3Ccmc, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.Neo3CCMC, "0x"))
-	if err != nil {
-		panic(fmt.Errorf("RegisterNeoChain, failed to decode Neo3CCMC '%s': %v", config.DefConfig.Neo3CCMC, err))
+	neo3Ccmc := helper3.HexToBytes(config.DefConfig.Neo3CCMC)
+	if len(neo3Ccmc) != 4 {
+		panic(fmt.Errorf("incorrect Neo3CCMC length"))
 	}
 	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.NeoChainID, 11, "NEO3",
 		blkToWait, neo3Ccmc[:], acc)
@@ -1879,12 +1880,12 @@ func UpdateNeo(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	blkToWait := uint64(1)
-	neo3Ccmc, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.Neo3CCMC, "0x"))
-	if err != nil {
-		log.Errorf("failed to decode Neo3CCMC: %v", err)
+	neo3Ccmc := helper3.HexToBytes(config.DefConfig.Neo3CCMC)
+	if len(neo3Ccmc) != 4 { //uint32
+		log.Errorf("incorrect Neo3CCMC length")
 		return false
 	}
-	if err = updateSideChain(poly, acc, config.DefConfig.NeoChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+	if err := updateSideChain(poly, acc, config.DefConfig.NeoChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
 		return false
 	}

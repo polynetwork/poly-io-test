@@ -11,7 +11,7 @@ require (
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/joeqian10/neo-gogogo v1.1.0
-	github.com/joeqian10/neo3-gogogo v0.2.3
+	github.com/joeqian10/neo3-gogogo v0.3.2
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/ontio/ontology v1.11.1-0.20200827103103-591f7ce1009c
@@ -35,5 +35,4 @@ replace github.com/polynetwork/poly => github.com/zhiqiangxu/poly v0.0.0-2021031
 
 replace github.com/polynetwork/poly-go-sdk => github.com/zhiqiangxu/poly-go-sdk v0.0.0-20201215024222-5d728b68e651
 
-//replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
-
+replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
