@@ -24,7 +24,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-
+	"github.com/polynetwork/poly/core/states"
+	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
 	"io/ioutil"
 
 	"math/big"
@@ -101,6 +102,7 @@ var (
 	rootca                                                                string
 	chainId                                                               uint64
 	fabricRelayerTy                                                       uint64
+	neo3StateValidators                                                   string
 )
 
 func init() {
@@ -123,6 +125,8 @@ func init() {
 	flag.StringVar(&rootca, "rootca", "", "file path for root CA")
 	flag.Uint64Var(&chainId, "chainid", 0, "default 0 means all chains")
 	flag.Uint64Var(&fabricRelayerTy, "fab_relayer_type", 1, "the relayer of fabric type: how many orgs need to sign CA for relayer")
+
+	flag.StringVar(&neo3StateValidators, "neo3statevalidators", "", "neo3 state root validator public keys in compressed format")
 
 	flag.Parse()
 }
@@ -376,6 +380,18 @@ func main() {
 			acc.Address, _ = common.AddressFromBase58(newWallet)
 		}
 		ApproveRelayer(poly, RegisterRelayer(poly, acc, signer), accArr)
+	case "register_state_validator":
+		accArr := getPolyAccounts(poly)
+		signer := acc
+		svs := strings.Split(neo3StateValidators, ",")
+		ApproveRegisterStateValidator(poly, RegisterStateValidator(poly, svs, signer), accArr)
+	case "remove_state_validator":
+		accArr := getPolyAccounts(poly)
+		signer := acc
+		svs := strings.Split(neo3StateValidators, ",")
+		ApproveRemoveStateValidator(poly, RemoveStateValidator(poly, svs, signer), accArr)
+	case "get_state_validator":
+		GetStateValidator(poly)
 	case "reg_poly_node":
 		acc, err = btc.GetAccountByPassword(poly, newWallet, []byte(newPwd))
 		if err != nil {
@@ -2264,6 +2280,102 @@ func GetRelayer(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) {
 		panic(err)
 	}
 	log.Infof("get relayer success: %s", addr.ToBase58())
+}
+
+func RegisterStateValidator(poly *poly_go_sdk.PolySdk, neo3PubKeys []string, signer *poly_go_sdk.Account) uint64 {
+	txhash, err := poly.Native.Sm.RegisterStateValidator(neo3PubKeys, signer)
+	if err != nil {
+		panic(err)
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register neo3 state validators, txHash is %s", txhash.ToHexString())
+	event, err := poly.GetSmartContractEvent(txhash.ToHexString())
+	if err != nil {
+		panic(err)
+	}
+	var id uint64
+	for _, e := range event.Notify {
+		states := e.States.([]interface{})
+		if states[0].(string) == "putStateValidatorApply" {
+			id = uint64(states[1].(float64))
+		}
+	}
+	return id
+}
+
+func ApproveRegisterStateValidator(poly *poly_go_sdk.PolySdk, id uint64, accArr []*poly_go_sdk.Account) {
+	var (
+		txhash common.Uint256
+		err    error
+	)
+	for i, v := range accArr {
+		txhash, err = poly.Native.Sm.ApproveRegisterStateValidator(id, v)
+		if err != nil {
+			panic(fmt.Errorf("no%d - failed to approve %d: %v", i, id, err))
+		}
+		log.Infof("No%d: successful to approve register state validators id %d: ( acc: %s, txHash: %s )",
+			i, id, v.Address.ToHexString(), txhash.ToHexString())
+		testcase.WaitPolyTx(txhash, poly)
+	}
+}
+
+func RemoveStateValidator(poly *poly_go_sdk.PolySdk, neo3PubKeys []string, signer *poly_go_sdk.Account) uint64 {
+	txhash, err := poly.Native.Sm.RemoveStateValidator(neo3PubKeys, signer)
+	if err != nil {
+		panic(err)
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to remove neo3 state validators, txHash is %s", txhash.ToHexString())
+	event, err := poly.GetSmartContractEvent(txhash.ToHexString())
+	if err != nil {
+		panic(err)
+	}
+	var id uint64
+	for _, e := range event.Notify {
+		states := e.States.([]interface{})
+		if states[0].(string) == "putStateValidatorRemove" {
+			id = uint64(states[1].(float64))
+		}
+	}
+	return id
+}
+
+func ApproveRemoveStateValidator(poly *poly_go_sdk.PolySdk, id uint64, accArr []*poly_go_sdk.Account) {
+	var (
+		txhash common.Uint256
+		err    error
+	)
+	for i, v := range accArr {
+		txhash, err = poly.Native.Sm.ApproveRemoveStateValidator(id, v)
+		if err != nil {
+			panic(fmt.Errorf("no%d - failed to approve %d: %v", i, id, err))
+		}
+		log.Infof("No%d: successful to approve remove state validators id %d: ( acc: %s, txHash: %s )",
+			i, id, v.Address.ToHexString(), txhash.ToHexString())
+	}
+	testcase.WaitPolyTx(txhash, poly)
+}
+
+func GetStateValidator(poly *poly_go_sdk.PolySdk) {
+	raw, err := poly.GetStorage(utils.Neo3StateManagerContractAddress.ToHexString(), append([]byte(neo3_state_manager.STATE_VALIDATOR)))
+	if err != nil {
+		panic(err)
+	}
+	if len(raw) == 0 {
+		log.Infof("no state validators found")
+		return
+	}
+	svBytes, err := states.GetValueFromRawStorageItem(raw)
+	if err != nil {
+		panic(err)
+	}
+	svs, err := neo3_state_manager.DeserializeStringArray(svBytes)
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range svs {
+		log.Infof("neo3 state validator pubKey: %s", v)
+	}
 }
 
 func QuitSideChain(poly *poly_go_sdk.PolySdk, id uint64, acc *poly_go_sdk.Account) {
