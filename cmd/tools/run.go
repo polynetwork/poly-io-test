@@ -861,7 +861,7 @@ func SyncMSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
 	tool := eth.NewEthTools(config.DefConfig.OKURL)
 
-	rawHex, err := ioutil.ReadFile("raw.hex")
+	rawHex, err := ioutil.ReadFile("../okex-verify/raw.hex")
 	if err != nil {
 		panic(fmt.Sprintf("ReadFile error:%v", err))
 	}
@@ -879,7 +879,7 @@ func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 		}
 	} else {
 		testcase.WaitPolyTx(txhash, poly)
-		log.Infof("successful to sync msc genesis header to poly: (txhash: %s )",
+		log.Infof("successful to sync ok genesis header to poly: (txhash: %s )",
 			txhash.ToHexString())
 	}
 
