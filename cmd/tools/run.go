@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-  
+
 	"io/ioutil"
 
 	"math/big"
@@ -32,9 +32,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/joeqian10/neo-gogogo/sc"
-	"github.com/polynetwork/poly-io-test/chains/neo3"
 
 	"github.com/Zilliqa/gozilliqa-sdk/account"
 	"github.com/Zilliqa/gozilliqa-sdk/core"
@@ -1997,7 +1994,7 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("incorrect Neo3CCMC length")
 		return false
 	}
-	if err := updateSideChain(poly, acc, config.DefConfig.NeoChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+	if err := updateSideChain(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
 		return false
 	}
