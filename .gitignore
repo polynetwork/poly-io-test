@@ -1,8 +1,10 @@
 .idea/
 .idea/*
 .wallets/*
+.alliance-wallets/*
+.vscode
 report/*
-config-dev.json
-config-test.json
-config-main.json
+*.json
 test.go
+fisco_sdk.toml
+*.yaml

@@ -111,13 +111,13 @@ func (invoker *BtcInvoker) BindBtcxWithVendor(btcx string, btcxChainId uint64, v
 	btcx = strings.Replace(btcx, "0x", "", 1)
 	var btcxBytes []byte
 	switch btcxChainId {
-	case config.ONT_CHAIN_ID: //ONT ChainId: 3
+	case config.DefConfig.OntChainID: //ONT ChainId: 3
 		addr, err := common2.AddressFromHexString(btcx)
 		if err != nil {
 			return common.UINT256_EMPTY, err
 		}
 		btcxBytes = addr[:]
-	case 2: //ETH ChainID: 2
+	case config.DefConfig.EthChainID: //ETH ChainID: 2
 		addr, err := hex.DecodeString(btcx)
 		if err != nil {
 			return common.UINT256_EMPTY, err

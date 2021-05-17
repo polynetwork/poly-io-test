@@ -18,18 +18,20 @@ package testframework
 
 import (
 	"fmt"
-	"github.com/polynetwork/poly-io-test/chains/btc"
-	"github.com/polynetwork/poly-io-test/chains/cosmos"
-	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/ont"
-	"github.com/polynetwork/poly-io-test/config"
-	"github.com/polynetwork/poly-io-test/log"
 	"os"
 	"reflect"
 	"sync"
 	"time"
 
-	"github.com/polynetwork/poly-go-sdk"
+	"github.com/polynetwork/poly-io-test/chains/btc"
+	"github.com/polynetwork/poly-io-test/chains/cosmos"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/neo"
+	"github.com/polynetwork/poly-io-test/chains/ont"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 )
 
 //Default TestFramework instance
@@ -54,9 +56,13 @@ type TestFramework struct {
 	rcSdk *poly_go_sdk.PolySdk
 	// invokers
 	ethInvoker    *eth.EInvoker
+	bscInvoker    *eth.EInvoker
+	mscInvoker    *eth.EInvoker
+	o3Invoker     *eth.EInvoker
 	btcInvoker    *btc.BtcInvoker
 	ontInvoker    *ont.OntInvoker
 	cosmosInvoker *cosmos.CosmosInvoker
+	neoInvoker    *neo.NeoInvoker
 }
 
 //NewTestFramework return a TestFramework instance
@@ -112,20 +118,32 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	this.onTestStart()
 	defer this.onTestFinish(testCaseList)
 
-	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.btcInvoker,
-		this.ontInvoker, this.cosmosInvoker)
+	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.bscInvoker, this.mscInvoker, this.o3Invoker, this.btcInvoker,
+		this.ontInvoker, this.cosmosInvoker, this.neoInvoker)
 	if this.ontInvoker != nil {
 		go MonitorOnt(ctx)
 	}
 	go MonitorRChain(ctx)
 	if this.ethInvoker != nil {
-		go MonitorEthChain(ctx)
+		go MonitorEthLikeChain(ctx, config.DefConfig.EthChainID)
+	}
+	if this.bscInvoker != nil {
+		go MonitorEthLikeChain(ctx, config.DefConfig.BscChainID)
+	}
+	if this.o3Invoker != nil {
+		go MonitorEthLikeChain(ctx, config.DefConfig.O3ChainID)
+	}
+	if this.mscInvoker != nil {
+		go MonitorEthLikeChain(ctx, config.DefConfig.MscChainID)
 	}
 	if this.btcInvoker != nil {
 		go MonitorBtc(ctx)
 	}
 	if this.cosmosInvoker != nil {
 		go MonitorCosmos(ctx)
+	}
+	if this.neoInvoker != nil {
+		go MonitorNeo(ctx)
 	}
 	go ReportPending(ctx)
 
@@ -147,6 +165,7 @@ func (this *TestFramework) runTest(index int, ctx *TestFrameworkContext, testCas
 		this.onAfterTestCaseFinish(index, loopNum, testCase, ok)
 		this.testCaseRes[this.getTestCaseId(testCase)] = ok
 		if !ok {
+			status.SetItSuccess(-1)
 			log.Errorf("case %s failed (loop: %d)", this.getTestCaseName(testCase), i)
 			break
 		}
@@ -164,6 +183,21 @@ func (this *TestFramework) SetEthInvoker(invoker *eth.EInvoker) {
 	this.ethInvoker = invoker
 }
 
+//SetBSC instance to test framework
+func (this *TestFramework) SetBSCInvoker(invoker *eth.EInvoker) {
+	this.bscInvoker = invoker
+}
+
+//SetO3Invoker instance to test framework
+func (this *TestFramework) SetO3Invoker(invoker *eth.EInvoker) {
+	this.o3Invoker = invoker
+}
+
+//SetMSCInvoker instance to test framework
+func (this *TestFramework) SetMSCInvoker(invoker *eth.EInvoker) {
+	this.mscInvoker = invoker
+}
+
 //SetBtcCli instance to test framework
 func (this *TestFramework) SetBtcInvoker(invoker *btc.BtcInvoker) {
 	this.btcInvoker = invoker
@@ -177,43 +211,47 @@ func (this *TestFramework) SetCosmosInvoker(cmInvoker *cosmos.CosmosInvoker) {
 	this.cosmosInvoker = cmInvoker
 }
 
+func (this *TestFramework) SetNeoInvoker(neoInvoker *neo.NeoInvoker) {
+	this.neoInvoker = neoInvoker
+}
+
 //onTestStart invoke at the beginning of test
 func (this *TestFramework) onTestStart() {
-	version, _ := this.ontInvoker.OntSdk.GetVersion()
+	version, _ := this.rcSdk.GetVersion()
 	log.Info("===============================================================")
 	log.Infof("-------CrossChain Test Start Version: %s", version)
 	log.Info("===============================================================")
 	log.Info("")
 	this.startTime = time.Now()
 	str := ""
-	if this.btcInvoker != nil {
-		btcInfo, err := this.btcInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += btcInfo + "\n"
-	}
-	if this.ethInvoker != nil {
-		ethInfo, err := this.ethInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += ethInfo + "\n"
-	}
-	if this.ontInvoker != nil {
-		ontInfo, err := this.ontInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += ontInfo + "\n"
-	}
-	if this.cosmosInvoker != nil {
-		cmInfo, err := this.cosmosInvoker.GetAccInfo()
-		if err != nil {
-			panic(err)
-		}
-		str += cmInfo + "\n"
-	}
+	//if this.btcInvoker != nil {
+	//	btcInfo, err := this.btcInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += btcInfo + "\n"
+	//}
+	//if this.ethInvoker != nil {
+	//	ethInfo, err := this.ethInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += ethInfo + "\n"
+	//}
+	//if this.ontInvoker != nil {
+	//	ontInfo, err := this.ontInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += ontInfo + "\n"
+	//}
+	//if this.cosmosInvoker != nil {
+	//	cmInfo, err := this.cosmosInvoker.GetAccInfo()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	str += cmInfo + "\n"
+	//}
 
 	log.Infof("account info: {\n %s}", str)
 }

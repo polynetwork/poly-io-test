@@ -18,13 +18,15 @@ package testframework
 
 import (
 	"fmt"
-	"github.com/polynetwork/poly-go-sdk"
+	"sync"
+	"time"
+
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
-	"sync"
-	"time"
 )
 
 //TestFrameworkContext is the context for test case
@@ -35,22 +37,30 @@ type TestFrameworkContext struct {
 	Status    *CtxStatus
 	// invokers
 	EthInvoker *eth.EInvoker
+	BscInvoker *eth.EInvoker
+	MscInvoker *eth.EInvoker
+	O3Invoker  *eth.EInvoker
 	BtcInvoker *btc.BtcInvoker
 	OntInvoker *ont.OntInvoker
 	CMInvoker  *cosmos.CosmosInvoker
+	NeoInvoker *neo.NeoInvoker
 }
 
 //NewTestFrameworkContext return a TestFrameworkContext instance
-func NewTestFrameworkContext(fw *TestFramework, caseArr []TestCase, rcSdk *poly_go_sdk.PolySdk, eInvkr *eth.EInvoker,
-	btcInvkr *btc.BtcInvoker, ontInvkr *ont.OntInvoker, cmInvoker *cosmos.CosmosInvoker) *TestFrameworkContext {
+func NewTestFrameworkContext(fw *TestFramework, caseArr []TestCase, rcSdk *poly_go_sdk.PolySdk, eInvkr, bscInvkr, mscInvkr, o3Invkr *eth.EInvoker,
+	btcInvkr *btc.BtcInvoker, ontInvkr *ont.OntInvoker, cmInvoker *cosmos.CosmosInvoker, neoInvoker *neo.NeoInvoker) *TestFrameworkContext {
 	ctx := &TestFrameworkContext{
 		Framework:  fw,
 		Cases:      caseArr,
 		RcSdk:      rcSdk,
 		EthInvoker: eInvkr,
+		BscInvoker: bscInvkr,
+		MscInvoker: mscInvkr,
+		O3Invoker:  o3Invkr,
 		BtcInvoker: btcInvkr,
 		OntInvoker: ontInvkr,
 		CMInvoker:  cmInvoker,
+		NeoInvoker: neoInvoker,
 	}
 	ctx.Status = NewCtxStatus(ctx)
 	return ctx
@@ -132,7 +142,7 @@ func (status *CtxStatus) Info() map[int]string {
 			res[idx] = "no tx for now"
 			continue
 		}
-		if str == "success!" {
+		if str == "success!" || str == "failed!" {
 			res[idx] = str
 			continue
 		}
@@ -151,7 +161,7 @@ type CaseStatus struct {
 	lock      *sync.Mutex
 	CaseIdx   int
 	txMap     map[string]*TxInfo
-	isSuccess bool
+	isSuccess int
 }
 
 func NewCaseStatus(idx int) *CaseStatus {
@@ -159,7 +169,7 @@ func NewCaseStatus(idx int) *CaseStatus {
 		lock:      &sync.Mutex{},
 		CaseIdx:   idx,
 		txMap:     make(map[string]*TxInfo),
-		isSuccess: false,
+		isSuccess: 0,
 	}
 }
 
@@ -195,8 +205,10 @@ func (cs *CaseStatus) Info() string {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 	info := ""
-	if cs.isSuccess {
+	if cs.isSuccess == 1 {
 		info = "success!"
+	} else if cs.isSuccess == -1 {
+		info = "failed!"
 	} else {
 		for k, v := range cs.txMap {
 			info += fmt.Sprintf("\t[ txhash: %s, type: %s, sec_not_confirm: %.1f ]\n", k, v.Ty, time.Now().Sub(v.StartTime).Seconds())
@@ -225,8 +237,8 @@ func (cs *CaseStatus) Len() int {
 	return len(cs.txMap)
 }
 
-func (cs *CaseStatus) SetItSuccess() {
+func (cs *CaseStatus) SetItSuccess(status int) {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
-	cs.isSuccess = true
+	cs.isSuccess = status
 }

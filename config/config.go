@@ -19,20 +19,19 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/polynetwork/poly-io-test/log"
 	"io/ioutil"
 	"os"
+
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/polynetwork/poly-io-test/log"
 )
 
 const (
-	ONT_CHAIN_ID = 3
-	ETH_CHAIN_ID = 2
-	BTC_CHAIN_ID = 1
-
 	CM_BTCX  = "btcx"
 	CM_ETHX  = "ethx"
+	CM_BNBX  = "bnbx"
 	CM_ERC20 = "erc20x"
+	CM_BEP20 = "bep20x"
 	CM_ONT   = "ontx"
 	CM_ONG   = "ongx"
 	CM_OEP4  = "oep4x"
@@ -40,6 +39,18 @@ const (
 
 //Config object used by ontology-instance
 type TestConfig struct {
+	BtcChainID  uint64
+	EthChainID  uint64
+	OntChainID  uint64
+	NeoChainID  uint64
+	Neo3ChainID uint64
+	BscChainID  uint64
+	ZilChainID  uint64
+	HecoChainID uint64
+	O3ChainID   uint64
+	MscChainID  uint64
+	OkChainID   uint64
+
 	BtcRestAddr                  string
 	BtcRestUser                  string
 	BtcRestPwd                   string
@@ -61,6 +72,27 @@ type TestConfig struct {
 	EthURL        string
 	ETHPrivateKey string
 
+	// msc urls
+	MSCURL        string
+	MSCPrivateKey string
+
+	// ok urls
+	OKURL        string
+	OKPrivateKey string
+	// bsc urls
+	BSCURL        string
+	BSCPrivateKey string
+	// heco urls
+	HecoURL        string
+	HecoPrivateKey string
+	// o3 urls
+	O3URL        string
+	O3PrivateKey string
+
+	// zil urls
+	ZilURL        string
+	ZilPrivateKey string
+
 	// ontology
 	OntJsonRpcAddress   string
 	OntWallet           string
@@ -80,6 +112,19 @@ type TestConfig struct {
 	CMCrossChainId uint64
 	CMEpoch        int64
 
+	// neo chain conf
+	NeoUrl   string
+	NeoWif   string
+	NeoEpoch uint32
+
+	// neo3 chain
+	Neo3Url            string
+	Neo3Wallet         string
+	Neo3Pwd            string
+	Neo3Magic          uint32
+	Neo3AddressVersion byte
+	Neo3Epoch          uint32
+
 	// relayer chain
 	RCWallet             string
 	RCWalletPwd          string
@@ -94,7 +139,89 @@ type TestConfig struct {
 	// Circle batch
 	TxNumPerBatch uint64
 
+	// msc contracts: auto set after deploy
+	MscEccd      string
+	MscEccm      string
+	MscEccmp     string
+	MscLockProxy string
+	Mep20        string
+	MscOep4      string
+	MscOngx      string
+	MscOntx      string
+	MscWBTC      string
+	MscUSDT      string
+	MscDai       string
+	MscUSDC      string
+	MscNeo       string
+	MscRenBTC    string
+	// ok contracts: auto set after deploy
+	OkEccd      string
+	OkEccm      string
+	OkEccmp     string
+	OkLockProxy string
+	OkErc20     string
+	OkOep4      string
+	OkOngx      string
+	OkOntx      string
+	OkWBTC      string
+	OkUSDT      string
+	OkDai       string
+	OkUSDC      string
+	OkNeo       string
+	OkRenBTC    string
+	// bsc contracts: auto set after deploy
+	BscEccd      string
+	BscEccm      string
+	BscEccmp     string
+	BscLockProxy string
+	Bep20        string
+	BscOep4      string
+	BscOngx      string
+	BscOntx      string
+	BscWBTC      string
+	BscUSDT      string
+	BscDai       string
+	BscUSDC      string
+	BscNeo       string
+	BscRenBTC    string
+	// heco contracts: auto set after deploy
+	HecoEccd      string
+	HecoEccm      string
+	HecoEccmp     string
+	HecoLockProxy string
+	HecoErc20     string
+	HecoOep4      string
+	HecoOngx      string
+	HecoOntx      string
+	HecoWBTC      string
+	HecoUSDT      string
+	HecoDai       string
+	HecoUSDC      string
+	HecoNeo       string
+	HecoRenBTC    string
+	// o3 contracts: auto set after deploy
+	O3Eccd      string
+	O3Eccm      string
+	O3Eccmp     string
+	O3LockProxy string
+	O3Erc20     string
+	O3Oep4      string
+	O3Ongx      string
+	O3Ontx      string
+	O3WBTC      string
+	O3USDT      string
+	O3Dai       string
+	O3USDC      string
+	O3Neo       string
+	O3RenBTC    string
+
+	// zil contracts
+	ZilEccdProxy string
+	ZilEccdImpl  string
+	ZilLockProxy string
+
 	// eth contracts: auto set after deploy
+	EthBnb              string
 	EthErc20            string
 	EthOep4             string
 	Eccd                string
@@ -103,25 +230,68 @@ type TestConfig struct {
 	EthLockProxy        string
 	EthOngx             string
 	EthOntx             string
+	EthOntd             string
+	EthUSDT             string
+	EthWBTC             string
+	EthDai              string
+	EthUSDC             string
+	EthNeo              string
+	EthRenBTC           string
 	BtceContractAddress string
 
 	// ont contracts: auto set after deploy
 	OntErc20            string
+	OntBep20            string
 	OntOep4             string
 	OntLockProxy        string
 	OntEth              string
+	OntBnb              string
+	OntUSDT             string
+	OntWBTC             string
+	OntDai              string
+	OntUSDC             string
+	OntNeo              string
+	OntONTD             string
+	OntRenBTC           string
 	BtcoContractAddress string
+
+	// neo
+	NeoCCMC      string
+	NeoLockProxy string
+	CNeo         string
+	NeoOnt       string
+	NeoOntd      string
+	NeoBnb       string
+	NeoEth       string
+
+	// neo3 contracts
+	Neo3CCMC      string
+	Neo3LockProxy string
+	Neo3Ont       string
+	Neo3Ontd      string
+	Neo3Bnb       string
+	Neo3Eth       string
+	Neo3Ht        string
+	Neo3Hrc20     string
 
 	// cosmos
 	CMLockProxy string
 
 	// transfer amount
-	BtcValLimit   uint64
-	OntValLimit   uint64
-	OngValLimit   uint64
-	EthValLimit   uint64
-	Oep4ValLimit  uint64
-	Erc20ValLimit uint64
+	BtcValLimit    uint64
+	OntValLimit    uint64
+	OntdValLimit   uint64
+	OngValLimit    uint64
+	EthValLimit    uint64
+	Oep4ValLimit   uint64
+	Erc20ValLimit  uint64
+	USDTValLimit   uint64
+	NeoValLimit    uint64
+	WBTCValLimit   uint64
+	USDCValLimit   uint64
+	RenBTCValLimit uint64
+
+	OntdValFloor uint64
 }
 
 //Default config instance

@@ -20,14 +20,17 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/polynetwork/poly-io-test/config"
-	"github.com/polynetwork/poly-io-test/log"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path"
 	"time"
+
+	"github.com/btcsuite/btcd/wire"
+	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/config"
+	"github.com/polynetwork/poly-io-test/log"
+	"github.com/polynetwork/poly/common"
 )
 
 func MonitorOnt(ctx *TestFrameworkContext) {
@@ -98,10 +101,42 @@ func parseOntologyChainBlock(ctx *TestFrameworkContext, height uint32) error {
 	return nil
 }
 
-func MonitorEthChain(ctx *TestFrameworkContext) {
-	currentHeight, err := ctx.EthInvoker.ETHUtil.GetNodeHeight()
+func getInvoker(ctx *TestFrameworkContext, chainID uint64) *eth.EInvoker {
+	switch chainID {
+	case config.DefConfig.EthChainID:
+		return ctx.EthInvoker
+	case config.DefConfig.BscChainID:
+		return ctx.BscInvoker
+	case config.DefConfig.MscChainID:
+		return ctx.MscInvoker
+	case config.DefConfig.O3ChainID:
+		return ctx.O3Invoker
+	default:
+		panic(fmt.Sprintf("unknown chain id:%d", chainID))
+	}
+}
+
+func getEccm(chainID uint64) string {
+	switch chainID {
+	case config.DefConfig.EthChainID:
+		return config.DefConfig.Eccm
+	case config.DefConfig.BscChainID:
+		return config.DefConfig.BscEccm
+	case config.DefConfig.MscChainID:
+		return config.DefConfig.MscEccm
+	case config.DefConfig.O3ChainID:
+		return config.DefConfig.O3Eccm
+	default:
+		panic(fmt.Sprintf("unknown chain id:%d", chainID))
+	}
+}
+
+func MonitorEthLikeChain(ctx *TestFrameworkContext, chainID uint64) {
+	invoker := getInvoker(ctx, chainID)
+
+	currentHeight, err := invoker.ETHUtil.GetNodeHeight()
 	if err != nil {
-		log.Errorf("ctx.EthTools.GetNodeHeight error: %s", err)
+		log.Errorf("MonitorEthChain - ctx.EthTools.GetNodeHeight error: %s", err)
 		os.Exit(1)
 	}
 	ethHeight := uint32(currentHeight) - 5
@@ -109,7 +144,7 @@ func MonitorEthChain(ctx *TestFrameworkContext) {
 	for {
 		select {
 		case <-updateTicker.C:
-			currentHeight, err := ctx.EthInvoker.ETHUtil.GetNodeHeight()
+			currentHeight, err := invoker.ETHUtil.GetNodeHeight()
 			if err != nil {
 				log.Errorf("ctx.EthTools.GetNodeHeight error: %s", err)
 				continue
@@ -119,7 +154,7 @@ func MonitorEthChain(ctx *TestFrameworkContext) {
 			}
 			for uint32(currentHeight) > ethHeight+5 {
 				ethHeight++
-				err = parseEthChainBlock(ctx, ethHeight) // TODO: influenced by forks
+				err = parseEthChainBlock(ctx, invoker, ethHeight) // TODO: influenced by forks
 				if err != nil {
 					log.Errorf("parseEthChainBlock error: %s", err)
 					ethHeight--
@@ -130,9 +165,9 @@ func MonitorEthChain(ctx *TestFrameworkContext) {
 	}
 }
 
-func parseEthChainBlock(ctx *TestFrameworkContext, height uint32) error {
+func parseEthChainBlock(ctx *TestFrameworkContext, invoker *eth.EInvoker, height uint32) error {
 	// contract is different
-	lockevents, unlockevents, err := ctx.EthInvoker.ETHUtil.GetSmartContractEventByBlock(config.DefConfig.Eccm, uint64(height))
+	lockevents, unlockevents, err := invoker.ETHUtil.GetSmartContractEventByBlock(getEccm(invoker.ChainID), uint64(height))
 	if err != nil {
 		return err
 	}
@@ -154,7 +189,7 @@ func parseEthChainBlock(ctx *TestFrameworkContext, height uint32) error {
 		}
 		ethTxIdByte = append(ethTxIdByte, indexInt.Bytes()...)
 		ethTxIdStr := hex.EncodeToString(ethTxIdByte)
-		log.Infof("send cross chain tx on eth, tx hash: %s, tx id: %s", ethTxHash, ethTxIdStr)
+		log.Infof("send cross chain tx on eth, tx hash: %s, tx id: %s chainID:%d", ethTxHash, ethTxIdStr, invoker.ChainID)
 		caseStatus := ctx.Status.GetCaseStatus(idx)
 		caseStatus.AddTx(ethTxIdStr, &TxInfo{ethTxHash, time.Now()})
 		caseStatus.Del(ethTxHash)
@@ -166,7 +201,7 @@ func parseEthChainBlock(ctx *TestFrameworkContext, height uint32) error {
 		allianceTxHash := event.RTxid
 		rawTxHash := event.FromTxId
 		if ok, idx := ctx.Status.IsTxPending(rawTxHash); ok {
-			log.Infof("receive cross chain tx on eth, txhash: %s, alliance tx hash: %s, raw tx hash: %s", event.Txid, allianceTxHash, rawTxHash)
+			log.Infof("receive cross chain tx on eth, txhash: %s, alliance tx hash: %s, raw tx hash: %s chainID:%d", event.Txid, allianceTxHash, rawTxHash, invoker.ChainID)
 			ctx.Status.DelWithIndex(rawTxHash, idx)
 		}
 	}
@@ -212,7 +247,6 @@ func parseRelayChainBlock(ctx *TestFrameworkContext, height uint32) error {
 		return err
 	}
 
-	//log.Infof("parseRelayChainBlock, relay chain block height: %d, events num: %d", height, len(events))
 	for _, event := range events {
 		for _, notify := range event.Notify {
 			states, ok := notify.States.([]interface{})
@@ -230,6 +264,15 @@ func parseRelayChainBlock(ctx *TestFrameworkContext, height uint32) error {
 					txid := mtx.TxHash()
 					caseStatus := ctx.Status.GetCaseStatus(idx)
 					caseStatus.AddTx(txid.String(), &TxInfo{"RCToBtc", time.Now()})
+					caseStatus.Del(txHash)
+				}
+			} else if ok && name == "makeProof" && uint64(states[2].(float64)) == config.DefConfig.NeoChainID {
+				txHash, _ := states[3].(string)
+				if ok, idx := ctx.Status.IsTxPending(txHash); ok {
+					pHash, _ := common.Uint256FromHexString(event.TxHash)
+					log.Infof("receive cross chain tx on relay chain, tx hash: %s, raw tx hash: %s", event.TxHash, txHash)
+					caseStatus := ctx.Status.GetCaseStatus(idx)
+					caseStatus.AddTx(hex.EncodeToString(pHash[:]), &TxInfo{"PolyToNeo", time.Now()})
 					caseStatus.Del(txHash)
 				}
 			}
@@ -286,6 +329,62 @@ func MonitorCosmos(ctx *TestFrameworkContext) {
 				}
 				cs.BatchDel(keys)
 			}
+		}
+	}
+}
+
+func MonitorNeo(ctx *TestFrameworkContext) {
+	res := ctx.NeoInvoker.Cli.GetBlockCount()
+	if res.HasError() {
+		log.Errorf("failed to get curr height: %s", res.Error.Message)
+		os.Exit(1)
+	}
+	left := uint32(res.Result - 1)
+
+	updateTicker := time.NewTicker(time.Second * 1)
+	for {
+		select {
+		case <-updateTicker.C:
+			res := ctx.NeoInvoker.Cli.GetBlockCount()
+			if res.HasError() {
+				continue
+			}
+			right := uint32(res.Result) - 3
+			if left >= right {
+				continue
+			}
+			for i := uint32(left); i < right; i++ {
+				res := ctx.NeoInvoker.Cli.GetBlockByIndex(i)
+				for _, tx := range res.Result.Tx {
+					if tx.Type != "InvocationTransaction" {
+						continue
+					}
+					appLogResp := ctx.NeoInvoker.Cli.GetApplicationLog(tx.Txid)
+					if appLogResp.ErrorResponse.Error.Message != "" {
+						continue
+					}
+					appLog := appLogResp.Result
+					for _, exeitem := range appLog.Executions {
+						for _, notify := range exeitem.Notifications {
+							if notify.Contract != config.DefConfig.NeoCCMC {
+								continue
+							}
+							if len(notify.State.Value) == 0 {
+								continue
+							}
+							contractMethod, _ := hex.DecodeString(notify.State.Value[0].Value)
+							if string(contractMethod) != "CrossChainUnlockEvent" {
+								continue
+							}
+							if ok, idx := ctx.Status.IsTxPending(notify.State.Value[3].Value); ok {
+								ctx.Status.DelWithIndex(notify.State.Value[3].Value, idx)
+								log.Infof("neo unlock, txhash: %s, fromTxHash: %s", tx.Txid, notify.State.Value[3].Value)
+							}
+						}
+					}
+				}
+			}
+			left = right
 		}
 	}
 }

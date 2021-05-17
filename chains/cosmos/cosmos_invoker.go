@@ -19,6 +19,11 @@ package cosmos
 import (
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/btcsuite/btcutil"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/mintkey"
@@ -28,7 +33,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ontio/ontology-go-sdk"
+	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/polynetwork/cosmos-poly-module/btcx"
 	"github.com/polynetwork/cosmos-poly-module/headersync"
@@ -39,11 +44,7 @@ import (
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/rpc/client/http"
-	"github.com/tendermint/tendermint/rpc/core/types"
-	"io/ioutil"
-	"strings"
-	"sync"
-	"time"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 type CosmosInvoker struct {
@@ -78,6 +79,10 @@ func NewCosmosInvoker() (*CosmosInvoker, error) {
 		return nil, err
 	}
 	invoker.CMCdc = NewCodec()
+	// okexchain doesn't use cosmos account
+	if conf.CMChainId == "okexchain" {
+		return invoker, nil
+	}
 
 	invoker.Acc, err = NewCosmosAcc(conf.CMWalletPath, conf.CMWalletPwd, invoker.RpcCli, invoker.CMCdc)
 	if err != nil {
@@ -250,21 +255,21 @@ func (invoker *CosmosInvoker) SetupBtcx(denom, redeem string) error {
 		return err
 	}
 	tx, err := invoker.sendCosmosTx([]types.Msg{btcx.NewMsgCreateDenom(invoker.Acc.Acc, denom, redeem)})
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already") {
 		return err
 	}
 	invoker.WaitTx(tx.Hash)
 	// bind btcx asset hash
-	tx, err = invoker.BtcxBindAsset(denom, config.BTC_CHAIN_ID, btcutil.Hash160(rawRdm))
+	tx, err = invoker.BtcxBindAsset(denom, config.DefConfig.BtcChainID, btcutil.Hash160(rawRdm))
 	if err != nil {
 		return fmt.Errorf("asset: %s, BtcxBindAsset error: %v", denom, err)
 	}
-	tx, err = invoker.BtcxBindAsset(denom, config.ETH_CHAIN_ID, common.HexToAddress(config.DefConfig.BtceContractAddress).Bytes())
+	tx, err = invoker.BtcxBindAsset(denom, config.DefConfig.EthChainID, common.HexToAddress(config.DefConfig.BtceContractAddress).Bytes())
 	if err != nil {
 		return fmt.Errorf("asset: %s, BtcxBindAsset error: %v", denom, err)
 	}
 	btcOnt, _ := common2.AddressFromHexString(config.DefConfig.BtcoContractAddress)
-	tx, err = invoker.BtcxBindAsset(denom, config.ONT_CHAIN_ID, btcOnt[:])
+	tx, err = invoker.BtcxBindAsset(denom, config.DefConfig.OntChainID, btcOnt[:])
 	if err != nil {
 		return fmt.Errorf("asset: %s, BtcxBindAsset error: %v", denom, err)
 	}
@@ -277,96 +282,96 @@ func (invoker *CosmosInvoker) SetupBtcx(denom, redeem string) error {
 func (invoker *CosmosInvoker) SetupAllAssets(proxy []byte) error {
 	// create coins and deletage to lockproxy
 	tx, err := invoker.CreateAsset(config.CM_ETHX, "1000000000000000000000000", proxy)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already") {
 		return fmt.Errorf("create ethx failed: %v", err)
 	}
 	{
 		// bind ethx asset hash
 		var err error
-		_, err = invoker.BindAsset(config.CM_ETHX, config.ETH_CHAIN_ID, common.HexToAddress("0x0000000000000000000000000000000000000000").Bytes())
+		_, err = invoker.BindAsset(config.CM_ETHX, config.DefConfig.EthChainID, common.HexToAddress("0x0000000000000000000000000000000000000000").Bytes())
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ETHX, err)
 		}
 		ontEth, _ := common2.AddressFromHexString(config.DefConfig.OntEth)
-		_, err = invoker.BindAsset(config.CM_ETHX, config.ONT_CHAIN_ID, ontEth[:])
+		_, err = invoker.BindAsset(config.CM_ETHX, config.DefConfig.OntChainID, ontEth[:])
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ETHX, err)
 		}
 	}
 	tx, err = invoker.CreateAsset(config.CM_ERC20, "1000000000000000000000000", proxy)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already") {
 		return fmt.Errorf("create erc20x failed: %v", err)
 	}
 	{
 		// bind erc20x asset hash
 		var err error
-		_, err = invoker.BindAsset(config.CM_ERC20, config.ETH_CHAIN_ID, common.HexToAddress(config.DefConfig.EthErc20).Bytes())
+		_, err = invoker.BindAsset(config.CM_ERC20, config.DefConfig.EthChainID, common.HexToAddress(config.DefConfig.EthErc20).Bytes())
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ERC20, err)
 		}
 		ontErc20, _ := common2.AddressFromHexString(config.DefConfig.OntErc20)
-		_, err = invoker.BindAsset(config.CM_ERC20, config.ONT_CHAIN_ID, ontErc20[:])
+		_, err = invoker.BindAsset(config.CM_ERC20, config.DefConfig.OntChainID, ontErc20[:])
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ERC20, err)
 		}
 	}
 	tx, err = invoker.CreateAsset(config.CM_ONT, "1000000000", proxy)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already") {
 		return fmt.Errorf("create ontx failed: %v", err)
 	}
 	{
 		// bind ontx asset hash
 		var err error
-		_, err = invoker.BindAsset(config.CM_ONT, config.ETH_CHAIN_ID, common.HexToAddress(config.DefConfig.EthOntx).Bytes())
+		_, err = invoker.BindAsset(config.CM_ONT, config.DefConfig.EthChainID, common.HexToAddress(config.DefConfig.EthOntx).Bytes())
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ONT, err)
 		}
-		_, err = invoker.BindAsset(config.CM_ONT, config.ONT_CHAIN_ID, ontology_go_sdk.ONT_CONTRACT_ADDRESS[:])
+		_, err = invoker.BindAsset(config.CM_ONT, config.DefConfig.OntChainID, ontology_go_sdk.ONT_CONTRACT_ADDRESS[:])
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ONT, err)
 		}
 	}
 	tx, err = invoker.CreateAsset(config.CM_ONG, "1000000000000000000", proxy)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already") {
 		return fmt.Errorf("create ongx failed: %v", err)
 	}
 	{
 		// bind ongx asset hash
 		var err error
-		_, err = invoker.BindAsset(config.CM_ONG, config.ETH_CHAIN_ID, common.HexToAddress(config.DefConfig.EthOngx).Bytes())
+		_, err = invoker.BindAsset(config.CM_ONG, config.DefConfig.EthChainID, common.HexToAddress(config.DefConfig.EthOngx).Bytes())
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ONG, err)
 		}
-		_, err = invoker.BindAsset(config.CM_ONG, config.ONT_CHAIN_ID, ontology_go_sdk.ONG_CONTRACT_ADDRESS[:])
+		_, err = invoker.BindAsset(config.CM_ONG, config.DefConfig.OntChainID, ontology_go_sdk.ONG_CONTRACT_ADDRESS[:])
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_ONG, err)
 		}
 	}
 	tx, err = invoker.CreateAsset(config.CM_OEP4, "10000000000000", proxy)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already") {
 		return fmt.Errorf("create oep4x failed: %v", err)
 	}
 	{
 		// bind oep4 asset hash
 		var err error
-		_, err = invoker.BindAsset(config.CM_OEP4, config.ETH_CHAIN_ID, common.HexToAddress(config.DefConfig.EthOep4).Bytes())
+		_, err = invoker.BindAsset(config.CM_OEP4, config.DefConfig.EthChainID, common.HexToAddress(config.DefConfig.EthOep4).Bytes())
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_OEP4, err)
 		}
 		ontOep4, _ := common2.AddressFromHexString(config.DefConfig.OntOep4)
-		_, err = invoker.BindAsset(config.CM_OEP4, config.ONT_CHAIN_ID, ontOep4[:])
+		_, err = invoker.BindAsset(config.CM_OEP4, config.DefConfig.OntChainID, ontOep4[:])
 		if err != nil {
 			return fmt.Errorf("asset: %s, bindAsset error: %v", config.CM_OEP4, err)
 		}
 	}
 	// bind eth proxy hash
 	ontProxyHash, _ := common2.AddressFromHexString(config.DefConfig.OntLockProxy)
-	_, err = invoker.BindProxy(config.ONT_CHAIN_ID, ontProxyHash[:])
+	_, err = invoker.BindProxy(config.DefConfig.OntChainID, ontProxyHash[:])
 	if err != nil {
 		return fmt.Errorf("BindProxy ethx failed: %v", err)
 	}
 	// bind ont proxy hash
-	_, err = invoker.BindProxy(config.ETH_CHAIN_ID, common.HexToAddress(config.DefConfig.EthLockProxy).Bytes())
+	_, err = invoker.BindProxy(config.DefConfig.EthChainID, common.HexToAddress(config.DefConfig.EthLockProxy).Bytes())
 	if err != nil {
 		return fmt.Errorf("BindProxy ethx failed: %v", err)
 	}

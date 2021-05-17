@@ -24,37 +24,65 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/polynetwork/poly/core/states"
+	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
+	"io/ioutil"
+
+	"math/big"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/Zilliqa/gozilliqa-sdk/account"
+	"github.com/Zilliqa/gozilliqa-sdk/core"
+	"github.com/Zilliqa/gozilliqa-sdk/crosschain/polynetwork"
+	"github.com/Zilliqa/gozilliqa-sdk/provider"
+	zilutil "github.com/Zilliqa/gozilliqa-sdk/util"
+
 	"github.com/btcsuite/btcd/wire"
 	types3 "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	common3 "github.com/ethereum/go-ethereum/common"
+	"github.com/joeqian10/neo-gogogo/block"
+	"github.com/joeqian10/neo-gogogo/helper/io"
+	"github.com/joeqian10/neo-gogogo/rpc"
+
+	block3 "github.com/joeqian10/neo3-gogogo/block"
+	helper3 "github.com/joeqian10/neo3-gogogo/helper"
+	io3 "github.com/joeqian10/neo3-gogogo/io"
+	rpc3 "github.com/joeqian10/neo3-gogogo/rpc"
 	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology-go-sdk"
+	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/types"
 	"github.com/ontio/ontology/smartcontract/service/native/cross_chain/header_sync"
 	"github.com/ontio/ontology/smartcontract/service/native/governance"
 	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
-	"github.com/polynetwork/poly-go-sdk"
+
+	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
+
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/eth/abi/eccm"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testcase"
 	"github.com/polynetwork/poly/common"
-	"github.com/polynetwork/poly/consensus/vbft/config"
+	vconfig "github.com/polynetwork/poly/consensus/vbft/config"
 	"github.com/polynetwork/poly/native/service/governance/node_manager"
 	"github.com/polynetwork/poly/native/service/governance/relayer_manager"
 	"github.com/polynetwork/poly/native/service/governance/side_chain_manager"
+	"github.com/polynetwork/poly/native/service/header_sync/bsc"
 	"github.com/polynetwork/poly/native/service/header_sync/cosmos"
+	"github.com/polynetwork/poly/native/service/header_sync/heco"
+	"github.com/polynetwork/poly/native/service/header_sync/msc"
 	"github.com/polynetwork/poly/native/service/utils"
 	"github.com/tendermint/tendermint/rpc/client/http"
 	types2 "github.com/tendermint/tendermint/types"
-	"math/big"
-	"os"
-	"strings"
 )
 
 var (
@@ -71,6 +99,10 @@ var (
 	stateFile                                                             string
 	id                                                                    uint64
 	blockMsgDelay, hashMsgDelay, peerHandshakeTimeout, maxBlockChangeView uint64
+	rootca                                                                string
+	chainId                                                               uint64
+	fabricRelayerTy                                                       uint64
+	neo3StateValidators                                                   string
 )
 
 func init() {
@@ -90,6 +122,11 @@ func init() {
 	flag.Uint64Var(&hashMsgDelay, "hash_msg_delay", 5000, "")
 	flag.Uint64Var(&peerHandshakeTimeout, "peer_handshake_timeout", 10, "")
 	flag.Uint64Var(&maxBlockChangeView, "max_blk_change_view", 10000, "")
+	flag.StringVar(&rootca, "rootca", "", "file path for root CA")
+	flag.Uint64Var(&chainId, "chainid", 0, "default 0 means all chains")
+	flag.Uint64Var(&fabricRelayerTy, "fab_relayer_type", 1, "the relayer of fabric type: how many orgs need to sign CA for relayer")
+
+	flag.StringVar(&neo3StateValidators, "neo3_state_validators", "", "neo3 state root validator public keys in compressed format")
 
 	flag.Parse()
 }
@@ -123,19 +160,93 @@ func main() {
 				panic(fmt.Errorf("failed to decode no%d wallet %s with pwd %s", i, wArr[i], pArr[i]))
 			}
 		}
-		if RegisterBtcChain(poly, acc) {
-			ApproveRegisterSideChain(config.BTC_CHAIN_ID, poly, accArr)
+		switch chainId {
+		case config.DefConfig.BtcChainID:
+			if RegisterBtcChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
+			}
+		case config.DefConfig.EthChainID:
+			if RegisterEthChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.EthChainID, poly, accArr)
+			}
+		case config.DefConfig.OntChainID:
+			if RegisterOntChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OntChainID, poly, accArr)
+			}
+		case config.DefConfig.NeoChainID:
+			if RegisterNeoChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
+			}
+		case config.DefConfig.Neo3ChainID:
+			if RegisterNeo3Chain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.Neo3ChainID, poly, accArr)
+			}
+		case config.DefConfig.CMCrossChainId:
+			if RegisterCosmos(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
+			}
+		case config.DefConfig.BscChainID:
+			if RegisterBSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
+			}
+		case config.DefConfig.ZilChainID:
+			if RegisterZIL(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
+			}
+		case config.DefConfig.HecoChainID:
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
+			}
+		case config.DefConfig.O3ChainID:
+			if RegisterO3(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
+			}
+		case config.DefConfig.MscChainID:
+			if registerMSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
+			}
+		case config.DefConfig.OkChainID:
+			if registerOK(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
+			}
+		case 0:
+			if RegisterBtcChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
+			}
+			if RegisterOntChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OntChainID, poly, accArr)
+			}
+			if RegisterEthChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.EthChainID, poly, accArr)
+			}
+			if RegisterCosmos(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
+			}
+			if RegisterNeoChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.NeoChainID, poly, accArr)
+			}
+			if RegisterNeo3Chain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.Neo3ChainID, poly, accArr)
+			}
+			if RegisterBSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.BscChainID, poly, accArr)
+			}
+			if RegisterZIL(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.ZilChainID, poly, accArr)
+			}
+			if RegisterHeco(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.HecoChainID, poly, accArr)
+			}
+			if RegisterO3(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.O3ChainID, poly, accArr)
+			}
+			if registerMSC(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.MscChainID, poly, accArr)
+			}
+			if registerOK(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
+			}
 		}
-		if RegisterOntChain(poly, acc) {
-			ApproveRegisterSideChain(config.ONT_CHAIN_ID, poly, accArr)
-		}
-		if RegisterEthChain(poly, acc) {
-			ApproveRegisterSideChain(config.ETH_CHAIN_ID, poly, accArr)
-		}
-		if RegisterCosmos(poly, acc) {
-			ApproveRegisterSideChain(config.DefConfig.CMCrossChainId, poly, accArr)
-		}
-
 	case "sync_genesis_header":
 		wArr := strings.Split(pWalletFiles, ",")
 		pArr := strings.Split(pPwds, ",")
@@ -147,21 +258,68 @@ func main() {
 				panic(fmt.Errorf("failed to decode no%d wallet %s with pwd %s", i, wArr[i], pArr[i]))
 			}
 		}
-		SyncBtcGenesisHeader(poly, acc)
-		SyncEthGenesisHeader(poly, accArr)
-		SyncOntGenesisHeader(poly, accArr)
-		SyncCosmosGenesisHeader(poly, accArr)
+
+		switch chainId {
+		case config.DefConfig.BtcChainID:
+			SyncBtcGenesisHeader(poly, acc)
+		case config.DefConfig.EthChainID:
+			SyncEthGenesisHeader(poly, accArr)
+		case config.DefConfig.OntChainID:
+			SyncOntGenesisHeader(poly, accArr)
+		case config.DefConfig.NeoChainID:
+			SyncNeoGenesisHeader(poly, accArr)
+		case config.DefConfig.Neo3ChainID:
+			SyncNeo3GenesisHeader(poly, accArr)
+		case config.DefConfig.CMCrossChainId:
+			SyncCosmosGenesisHeader(poly, accArr)
+		case config.DefConfig.BscChainID:
+			SyncBSCGenesisHeader(poly, accArr)
+		case config.DefConfig.ZilChainID:
+			SyncZILGenesisHeader(poly, accArr)
+		case config.DefConfig.HecoChainID:
+			SyncHecoGenesisHeader(poly, accArr)
+		case config.DefConfig.O3ChainID:
+			SyncO3GenesisHeader(poly, accArr)
+		case config.DefConfig.MscChainID:
+			SyncMSCGenesisHeader(poly, accArr)
+		case config.DefConfig.OkChainID:
+			SyncOKGenesisHeader(poly, accArr)
+		case 0:
+			SyncBtcGenesisHeader(poly, acc)
+			SyncEthGenesisHeader(poly, accArr)
+			SyncOntGenesisHeader(poly, accArr)
+			SyncCosmosGenesisHeader(poly, accArr)
+			SyncNeoGenesisHeader(poly, accArr)
+			SyncNeo3GenesisHeader(poly, accArr)
+			SyncBSCGenesisHeader(poly, accArr)
+			SyncZILGenesisHeader(poly, accArr)
+			SyncHecoGenesisHeader(poly, accArr)
+			SyncMSCGenesisHeader(poly, accArr)
+			SyncOKGenesisHeader(poly, accArr)
+		}
 
 	case "update_btc":
 		accArr := getPolyAccounts(poly)
 		if UpdateBtc(poly, acc) {
-			ApproveUpdateChain(config.BTC_CHAIN_ID, poly, accArr)
+			ApproveUpdateChain(config.DefConfig.BtcChainID, poly, accArr)
 		}
 
 	case "update_eth":
 		accArr := getPolyAccounts(poly)
 		if UpdateEth(poly, acc) {
-			ApproveUpdateChain(config.ETH_CHAIN_ID, poly, accArr)
+			ApproveUpdateChain(config.DefConfig.EthChainID, poly, accArr)
+		}
+
+	case "update_neo":
+		accArr := getPolyAccounts(poly)
+		if UpdateNeo(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.NeoChainID, poly, accArr)
+		}
+
+	case "update_neo3":
+		accArr := getPolyAccounts(poly)
+		if UpdateNeo3(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.Neo3ChainID, poly, accArr)
 		}
 
 	case "init_ont_acc":
@@ -212,11 +370,28 @@ func main() {
 	case "add_relayer":
 		accArr := getPolyAccounts(poly)
 		signer := acc
-		acc, err = btc.GetAccountByPassword(poly, newWallet, []byte(newPwd))
-		if err != nil {
-			panic(fmt.Errorf("failed to get new account: %v", err))
+		acc = &poly_go_sdk.Account{}
+		if newPwd != "" {
+			acc, err = btc.GetAccountByPassword(poly, newWallet, []byte(newPwd))
+			if err != nil {
+				panic(fmt.Errorf("failed to get new account: %v", err))
+			}
+		} else {
+			acc.Address, _ = common.AddressFromBase58(newWallet)
 		}
 		ApproveRelayer(poly, RegisterRelayer(poly, acc, signer), accArr)
+	case "register_state_validator":
+		accArr := getPolyAccounts(poly)
+		signer := acc
+		svs := strings.Split(neo3StateValidators, ",")
+		ApproveRegisterStateValidator(poly, RegisterStateValidator(poly, svs, signer), accArr)
+	case "remove_state_validator":
+		accArr := getPolyAccounts(poly)
+		signer := acc
+		svs := strings.Split(neo3StateValidators, ",")
+		ApproveRemoveStateValidator(poly, RemoveStateValidator(poly, svs, signer), accArr)
+	case "get_state_validator":
+		GetStateValidator(poly)
 	case "reg_poly_node":
 		acc, err = btc.GetAccountByPassword(poly, newWallet, []byte(newPwd))
 		if err != nil {
@@ -371,7 +546,7 @@ func SyncBtcGenesisHeader(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) {
 
 	hb := make([]byte, 4)
 	binary.BigEndian.PutUint32(hb, uint32(start))
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.BTC_CHAIN_ID, append(buf.Bytes(), hb...),
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.BtcChainID, append(buf.Bytes(), hb...),
 		[]*poly_go_sdk.Account{acc})
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
@@ -401,7 +576,7 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	if err != nil {
 		panic(err)
 	}
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.ETH_CHAIN_ID, raw, accArr)
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.EthChainID, raw, accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("eth already synced")
@@ -414,7 +589,7 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 			hdr.Hash().String(), txhash.ToHexString())
 	}
 
-	eccmContract, err := eccm.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.Eccm), tool.GetEthClient())
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.Eccm), tool.GetEthClient())
 	if err != nil {
 		panic(err)
 	}
@@ -426,6 +601,243 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
 	if err != nil {
 		panic(fmt.Errorf("SyncEthGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("SyncEthGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	rawHdr := gB.Header.ToArray()
+
+	contractabi, err := abi.JSON(strings.NewReader(eccm_abi.EthCrossChainManagerABI))
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, abi.JSON error: %v", err)
+		return
+	}
+	txData, err := contractabi.Pack("initGenesisBlock", rawHdr, publickeys)
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, contractabi.Pack error: %v", err)
+		return
+	}
+
+	eccm := common3.HexToAddress(config.DefConfig.Eccm)
+	callMsg := ethereum.CallMsg{
+		From: signer.Address, To: &eccm, Gas: 0, GasPrice: gasPrice,
+		Value: big.NewInt(0), Data: txData,
+	}
+	gasLimit, err := tool.GetEthClient().EstimateGas(context.Background(), callMsg)
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, estimate gas limit error: %s", err.Error())
+		return
+	}
+
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), gasLimit)
+	tx, err := eccmContract.InitGenesisBlock(auth, rawHdr, publickeys)
+	if err != nil {
+		log.Errorf("SyncEthGenesisHeader, failed to sync poly header to ETH: %v", err)
+		return
+	}
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to Ethereum: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncZILGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	type TxBlockAndDsComm struct {
+		TxBlock *core.TxBlock
+		DsBlock *core.DsBlock
+		DsComm  []core.PairOfNode
+	}
+
+	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
+	initDsComm, _ := zilSdk.GetCurrentDSComm()
+	// as its name suggest, the tx epoch is actually a future tx block
+	// zilliqa side has this limitation to avoid some risk that no tx block got mined yet
+	nextTxEpoch, _ := strconv.ParseUint(initDsComm.CurrentTxEpoch, 10, 64)
+	fmt.Printf("current tx block number is %s, ds block number is %s, number of ds guard is: %d\n", initDsComm.CurrentTxEpoch, initDsComm.CurrentDSEpoch, initDsComm.NumOfDSGuard)
+
+	for {
+		latestTxBlock, _ := zilSdk.GetLatestTxBlock()
+		fmt.Println("wait current tx block got generated")
+		latestTxBlockNum, _ := strconv.ParseUint(latestTxBlock.Header.BlockNum, 10, 64)
+		fmt.Printf("latest tx block num is: %d, current tx block num is: %d", latestTxBlockNum, nextTxEpoch)
+		if latestTxBlockNum >= nextTxEpoch {
+			break
+		}
+		time.Sleep(time.Second * 20)
+	}
+
+	networkId, err := zilSdk.GetNetworkId()
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader failed: %s", err.Error()))
+	}
+
+	var dsComm []core.PairOfNode
+	for _, ds := range initDsComm.DSComm {
+		dsComm = append(dsComm, core.PairOfNode{
+			PubKey: ds,
+		})
+	}
+
+	dsBlockT, err := zilSdk.GetDsBlockVerbose(initDsComm.CurrentDSEpoch)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader get ds block %s failed: %s", initDsComm.CurrentDSEpoch, err.Error()))
+	}
+	dsBlock := core.NewDsBlockFromDsBlockT(dsBlockT)
+
+	txBlockT, err := zilSdk.GetTxBlockVerbose(initDsComm.CurrentTxEpoch)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader get tx block %s failed: %s", initDsComm.CurrentTxEpoch, err.Error()))
+	}
+
+	txBlock := core.NewTxBlockFromTxBlockT(txBlockT)
+
+	txBlockAndDsComm := TxBlockAndDsComm{
+		TxBlock: txBlock,
+		DsBlock: dsBlock,
+		DsComm:  dsComm,
+	}
+
+	raw, err := json.Marshal(txBlockAndDsComm)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader marshal genesis info failed: %s", err.Error()))
+	}
+
+	// sync zilliqa genesis info onto polynetwork
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.ZilChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("zil already synced")
+		} else {
+			panic(fmt.Errorf("SyncZILGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync zil genesis header, ds block: %s, tx block: %s, ds comm: %+v\n", zilutil.EncodeHex(dsBlock.BlockHash[:]), zilutil.EncodeHex(txBlock.BlockHash[:]), dsComm)
+	}
+
+	// sycn poly network info to zilliqa cross chain manager
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	genesisHeader := "0x" + zilutil.EncodeHex(gB.Header.ToArray())
+	genesisPubKey := zilutil.EncodeHex(publickeys)
+
+	publicKeys, err := polynetwork.SplitPubKeys(genesisPubKey)
+	if err != nil {
+		panic(err)
+	}
+
+	wallet := account.NewWallet()
+	wallet.AddByPrivateKey(config.DefConfig.ZilPrivateKey)
+	chainIdInt, _ := strconv.ParseInt(networkId, 10, 64)
+	p := &polynetwork.Proxy{
+		ProxyAddr:  config.DefConfig.ZilEccdProxy,
+		ImplAddr:   config.DefConfig.ZilEccdImpl,
+		Wallet:     wallet,
+		Client:     zilSdk,
+		ChainId:    int(chainIdInt),
+		MsgVersion: 1,
+	}
+
+	tx, err := p.InitGenesisBlock(genesisHeader, publicKeys)
+	if err != nil {
+		panic(fmt.Errorf("SyncZILGenesisHeader failed at init genesis block to zilliqa: %v", err))
+	}
+
+	hash, _ := tx.Hash()
+	if tx.Receipt.Success {
+		log.Infof("succeed to sync poly genesis header to ZIL: ( txhash: %s )", zilutil.EncodeHex(hash))
+	} else {
+		log.Infof("failed to sync poly genesis header to ZIL: ( txhash: %s )", zilutil.EncodeHex(hash))
+	}
+
+}
+
+func SyncMSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.MSCURL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+
+	raw, err := json.Marshal(hdr)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.MscChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("msc already synced")
+		} else {
+			panic(fmt.Errorf("SyncMSCGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync msc genesis header to poly: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.MscEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.MSCPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncBSCGenesisHeader, get suggest gas price failed error: %s", err.Error()))
 	}
 	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
 	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
@@ -454,7 +866,338 @@ func SyncEthGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
 	tool.WaitTransactionConfirm(tx.Hash())
-	log.Infof("successful to sync poly genesis header to Ethereum: ( txhash: %s )", tx.Hash().String())
+	log.Infof("successful to sync poly genesis header to MSC: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.OKURL)
+
+	rawHex, err := ioutil.ReadFile("../okex-verify/raw.hex")
+	if err != nil {
+		panic(fmt.Sprintf("ReadFile error:%v", err))
+	}
+	raw, err := hex.DecodeString(string(rawHex))
+	if err != nil {
+		panic(fmt.Sprintf("DecodeString error:%v", err))
+	}
+
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.OkChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("msc already synced")
+		} else {
+			panic(fmt.Errorf("SyncMSCGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync ok genesis header to poly: (txhash: %s )",
+			txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.OkEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.OKPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncOKGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	log.Infof("successful to sync poly genesis header to OK: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncO3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.O3URL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+
+	raw, err := json.Marshal(hdr)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.O3ChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("o3 already synced")
+		} else {
+			panic(fmt.Errorf("SyncO3GenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync o3 genesis header to poly: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.O3Eccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.O3PrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncO3GenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to O3: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncHecoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.HecoURL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+	pEpochHeight := epochHeight - 200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+	phdr, err := tool.GetBlockHeader(pEpochHeight)
+	if err != nil {
+		panic(err)
+	}
+	pvalidators, err := heco.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+	if len(phdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
+	}
+
+	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
+		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+	}}
+	raw, err := json.Marshal(genesisHeader)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.HecoChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heco genesis header already synced")
+		} else {
+			panic(fmt.Errorf("SyncHecoGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync heco genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.HecoEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.HecoPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncHecoGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to Heco: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncBSCGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	tool := eth.NewEthTools(config.DefConfig.BSCURL)
+	height, err := tool.GetNodeHeight()
+	if err != nil {
+		panic(err)
+	}
+
+	epochHeight := height - height%200
+	pEpochHeight := epochHeight - 200
+
+	hdr, err := tool.GetBlockHeader(epochHeight)
+	if err != nil {
+		panic(err)
+	}
+	phdr, err := tool.GetBlockHeader(pEpochHeight)
+	if err != nil {
+		panic(err)
+	}
+	pvalidators, err := bsc.ParseValidators(phdr.Extra[32 : len(phdr.Extra)-65])
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", epochHeight))
+	}
+	if len(phdr.Extra) <= 65+32 {
+		panic(fmt.Sprintf("invalid epoch header at height:%d", pEpochHeight))
+	}
+
+	genesisHeader := bsc.GenesisHeader{Header: *hdr, PrevValidators: []bsc.HeightAndValidators{
+		{Height: big.NewInt(int64(pEpochHeight)), Validators: pvalidators},
+	}}
+	raw, err := json.Marshal(genesisHeader)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.BscChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("bsc already synced")
+		} else {
+			panic(fmt.Errorf("SyncBSCGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync bsc genesis header: (height: %d, blk_hash: %s, txhash: %s )", epochHeight,
+			hdr.Hash().String(), txhash.ToHexString())
+	}
+
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.BscEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.BSCPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncBSCGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to BSC: ( txhash: %s )", tx.Hash().String())
 }
 
 func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
@@ -465,7 +1208,7 @@ func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	if err != nil {
 		panic(err)
 	}
-	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.ONT_CHAIN_ID, genesisBlock.Header.ToArray(), accArr)
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.OntChainID, genesisBlock.Header.ToArray(), accArr)
 	if err != nil {
 		if strings.Contains(err.Error(), "had been initialized") {
 			log.Info("ont already synced")
@@ -504,12 +1247,157 @@ func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	log.Infof("successful to sync poly genesis header to Ontology: ( txhash: %s )", txHash.ToHexString())
 }
 
+func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
+	cli := rpc.NewClient(config.DefConfig.NeoUrl)
+	resp := cli.GetBlockHeaderByIndex(config.DefConfig.NeoEpoch)
+	if resp.HasError() {
+		return fmt.Errorf("failed to get header: %v", resp.Error.Message)
+	}
+	header, err := block.NewBlockHeaderFromRPC(&resp.Result)
+	if err != nil {
+		return err
+	}
+	buf := io.NewBufBinaryWriter()
+	header.Serialize(buf.BinaryWriter)
+	if buf.Err != nil {
+		return buf.Err
+	}
+
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.NeoChainID, buf.Bytes(), accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("neo already synced")
+		} else {
+			panic(fmt.Errorf("SyncNeoGenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+	return nil
+}
+
+func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
+	cli := rpc3.NewClient(config.DefConfig.Neo3Url)
+	resp := cli.GetBlockHeader(strconv.Itoa(int(config.DefConfig.Neo3Epoch)))
+	if resp.HasError() {
+		return fmt.Errorf("failed to get header: %v", resp.Error.Message)
+	}
+	header, err := block3.NewBlockHeaderFromRPC(&resp.Result)
+	if err != nil {
+		return err
+	}
+	buf := io3.NewBufBinaryWriter()
+	header.Serialize(buf.BinaryWriter)
+	if buf.Err != nil {
+		return buf.Err
+	}
+	//// concatenate state validator to genesis header bytes
+	//sv, err := crypto3.AddressToScriptHash(config.DefConfig.Neo3StateValidator, helper3.DefaultAddressVersion)
+	//if err != nil {
+	//	return err
+	//}
+	//extra := append([]byte{0x14}, sv.ToByteArray()...)
+	//bs := buf.Bytes()
+	//bs = append(bs, extra...)
+
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.Neo3ChainID, buf.Bytes(), accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("neo3 already synced")
+		} else {
+			panic(fmt.Errorf("SyncNeo3GenesisHeader failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync neo3 genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+	//// start sync poly header to neo3 side chain
+	//if config.DefConfig.Neo3Wallet == "" {
+	//	log.Infof("neo3 wallet empty, won't sync poly header to neo3 ccmc")
+	//	return nil
+	//}
+	//polyHeader, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	//if err != nil {
+	//	return fmt.Errorf("poly.GetHeader(%d) to be synced to neo3 as genesis err: %v", config.DefConfig.RCEpoch, err)
+	//}
+	//
+	//cp1 := sc.ContractParameter{
+	//	Type:  sc.ByteArray,
+	//	Value: polyHeader.Header.GetMessage(),
+	//}
+	//// public keys
+	//info := &vconfig.VbftBlockInfo{}
+	//if err := json.Unmarshal(polyHeader.Header.ConsensusPayload, info); err != nil {
+	//	return fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err)
+	//}
+	//var bookkeepers []keypair.PublicKey
+	//for _, peer := range info.NewChainConfig.Peers {
+	//	keystr, _ := hex.DecodeString(peer.ID)
+	//	key, _ := keypair.DeserializePublicKey(keystr)
+	//	bookkeepers = append(bookkeepers, key)
+	//}
+	//bookkeepers = keypair.SortPublicKeys(bookkeepers)
+	//publickeys := make([]byte, 0)
+	//for _, key := range bookkeepers {
+	//	publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	//}
+	//cp2 := sc.ContractParameter{
+	//	Type:  sc.ByteArray,
+	//	Value: publickeys,
+	//}
+	//
+	//invoker, err := neo3.NewNeo3Invoker()
+	//if err != nil {
+	//	return fmt.Errorf("NewNeo3Invoker err: %v", err)
+	//}
+	//// build script
+	//scriptHash, err := helper3.UInt160FromString(config.DefConfig.Neo3CCMC) // big endian
+	//if err != nil {
+	//	return fmt.Errorf("neo3 ccmc conversion error: %s", err)
+	//}
+	//
+	//script, err := sc3.MakeScript(scriptHash, "InitGenesisBlock", []interface{}{cp1, cp2})
+	//if err != nil {
+	//	return fmt.Errorf("neo3 sc.MakeScript error: %s", err)
+	//}
+	//
+	//balancesGas, err := invoker.GetAccountAndBalance(tx3.GasToken)
+	//if err != nil {
+	//	return fmt.Errorf("neo3 GetAccountAndBalance error: %s", err)
+	//}
+	//
+	//// make transaction
+	//trx, err := invoker.MakeTransaction(script, nil, []tx3.ITransactionAttribute{}, balancesGas)
+	//if err != nil {
+	//	return fmt.Errorf("neo3 MakeTransaction error: %s", err)
+	//}
+	//
+	//// sign transaction
+	//trx, err = invoker.SignTransaction(trx, config.DefConfig.Neo3Magic)
+	//if err != nil {
+	//	return fmt.Errorf("neo3 SignTransaction error: %s", err)
+	//}
+	//rawTxString := crypto3.Base64Encode(trx.ToByteArray())
+	//
+	//// send the raw transaction
+	//response := invoker.Client.SendRawTransaction(rawTxString)
+	//if response.HasError() {
+	//	return fmt.Errorf("initGenesisBlock on neo3, SendRawTx err: %v", err)
+	//}
+	//log.Infof("sync poly header to neo3 as genesis, neo3TxHash: %s", trx.GetHash().String())
+	//
+	return nil
+}
+
 func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+
 	invoker, err := cosmos2.NewCosmosInvoker()
 	if err != nil {
 		panic(err)
 	}
-
 	res, err := invoker.RpcCli.Commit(&config.DefConfig.CMEpoch)
 	if err != nil {
 		panic(err)
@@ -539,17 +1427,63 @@ func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Ac
 		log.Infof("successful to sync cosmos genesis header: ( txhash: %s )", txhash.ToHexString())
 	}
 
-	header, err := poly.GetHeaderByHeight(config.DefConfig.RCEpoch)
-	if err != nil {
-		panic(err)
-	}
+	if config.DefConfig.CMChainId != "okexchain" {
+		header, err := poly.GetHeaderByHeight(config.DefConfig.RCEpoch)
+		if err != nil {
+			panic(err)
+		}
 
-	tx, err := invoker.SyncPolyGenesisHdr(invoker.Acc.Acc, header.ToArray())
-	if err != nil {
-		panic(err)
-	}
+		tx, err := invoker.SyncPolyGenesisHdr(invoker.Acc.Acc, header.ToArray())
+		if err != nil {
+			panic(err)
+		}
 
-	log.Infof("successful to sync poly genesis header to cosmos: ( txhash: %s )", tx.Hash.String())
+		log.Infof("successful to sync poly genesis header to cosmos: ( txhash: %s )", tx.Hash.String())
+	} else {
+		tool := eth.NewEthTools(config.DefConfig.OKURL)
+		eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.OkEccm), tool.GetEthClient())
+		if err != nil {
+			panic(err)
+		}
+		signer, err := eth.NewEthSigner(config.DefConfig.OKPrivateKey)
+		if err != nil {
+			panic(err)
+		}
+		nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+		gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+		if err != nil {
+			panic(fmt.Errorf("SyncCosmosGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+		}
+		gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+		auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+		gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+		if err != nil {
+			panic(err)
+		}
+		info := &vconfig.VbftBlockInfo{}
+		if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+			panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+		}
+
+		var bookkeepers []keypair.PublicKey
+		for _, peer := range info.NewChainConfig.Peers {
+			keystr, _ := hex.DecodeString(peer.ID)
+			key, _ := keypair.DeserializePublicKey(keystr)
+			bookkeepers = append(bookkeepers, key)
+		}
+		bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+		publickeys := make([]byte, 0)
+		for _, key := range bookkeepers {
+			publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+		}
+
+		tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+		tool.WaitTransactionConfirm(tx.Hash())
+
+		log.Infof("successful to sync poly genesis header to cosmos: ( txhash: %s )", tx.Hash().String())
+	}
 }
 
 func getValidators(rpc *http.HTTP, h int64) ([]*types2.Validator, error) {
@@ -601,7 +1535,6 @@ func ApproveRegisterSideChain(id uint64, poly *poly_go_sdk.PolySdk, accArr []*po
 		txhash common.Uint256
 		err    error
 	)
-
 	for i, a := range accArr {
 		txhash, err = poly.Native.Scm.ApproveRegisterSideChain(id, a)
 		if err != nil {
@@ -630,15 +1563,15 @@ func RegisterBtcChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 
 	rawTy := make([]byte, 8)
 	binary.LittleEndian.PutUint64(rawTy, uint64(tyNet))
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.BTC_CHAIN_ID, config.BTC_CHAIN_ID, "btc",
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.BtcChainID, config.DefConfig.BtcChainID, "btc",
 		blkToWait, rawTy, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("btc chain %d already registered", config.BTC_CHAIN_ID)
+			log.Infof("btc chain %d already registered", config.DefConfig.BtcChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("btc chain %d already requested", config.BTC_CHAIN_ID)
+			log.Infof("btc chain %d already requested", config.DefConfig.BtcChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterBtcChain failed: %v", err))
@@ -659,21 +1592,71 @@ func RegisterEthChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	if err != nil {
 		panic(fmt.Errorf("RegisterEthChain, failed to decode eccd '%s' : %v", config.DefConfig.Eccd, err))
 	}
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.ETH_CHAIN_ID, config.ETH_CHAIN_ID, "eth",
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.EthChainID, 2, "eth",
 		blkToWait, eccd, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("eth chain %d already registered", config.ETH_CHAIN_ID)
+			log.Infof("eth chain %d already registered", config.DefConfig.EthChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("eth chain %d already requested", config.ETH_CHAIN_ID)
+			log.Infof("eth chain %d already requested", config.DefConfig.EthChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterEthChain failed: %v", err))
 	}
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register eth chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.NeoCCMC, "0x"))
+	if err != nil {
+		panic(fmt.Errorf("RegisterNeoChain, failed to decode eccd '%s' : %v", config.DefConfig.Eccd, err))
+	}
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.NeoChainID, 4, "NEO",
+		blkToWait, eccd[:], acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("neo chain %d already registered", config.DefConfig.NeoChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("neo chain %d already requested", config.DefConfig.NeoChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterNeoChain failed: %v", err))
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register neo chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	neo3Ccmc := helper3.HexToBytes(config.DefConfig.Neo3CCMC)
+	if len(neo3Ccmc) != 4 {
+		panic(fmt.Errorf("incorrect Neo3CCMC length"))
+	}
+	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
+		blkToWait, neo3Ccmc[:], acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("neo3 chain %d already registered", config.DefConfig.Neo3ChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("neo3 chain %d already requested", config.DefConfig.Neo3ChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterNeo3Chain failed: %v", err))
+	}
+	testcase.WaitPolyTx(txHash, poly)
+	log.Infof("successful to register neo3 chain, txHash: %s", txHash.ToHexString())
 
 	return true
 }
@@ -698,18 +1681,259 @@ func RegisterCosmos(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	log.Infof("successful to register cosmos chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
+
 }
 
-func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.ONT_CHAIN_ID, 3, "ont",
-		1, []byte{}, acc)
+func registerMSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.MSCURL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(15)
+	extra := msc.ExtraInfo{
+		ChainID: chainID,
+		Period:  15,
+		Epoch:   30000,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.MscEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerMSC, failed to decode eccd '%s' : %v", config.DefConfig.MscEccd, err))
+	}
+
+	fmt.Println("config.DefConfig.MSCChainID", config.DefConfig.MscChainID, "extraBytes", string(extraBytes), "MscEccd", config.DefConfig.MscEccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.MscChainID, 10, "msc",
+		blkToWait, eccd, extraBytes, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("ont chain %d already registered", config.ONT_CHAIN_ID)
+			log.Infof("bsc chain %d already registered", config.DefConfig.MscChainID)
 			return false
 		}
 		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("ont chain %d already requested", config.ONT_CHAIN_ID)
+			log.Infof("bsc chain %d already requested", config.DefConfig.MscChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerMSC failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register msc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func registerOK(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.OkEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerMSC, failed to decode eccd '%s' : %v", config.DefConfig.OkEccd, err))
+	}
+
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.OkChainID, 12, "ok",
+		blkToWait, eccd, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("ok chain %d already registered", config.DefConfig.OkChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("ok chain %d already requested", config.DefConfig.OkChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerOK failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register ok chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterO3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.O3URL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(15)
+	extra := msc.ExtraInfo{
+		ChainID: chainID,
+		Period:  3,
+		Epoch:   200,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.O3Eccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterO3, failed to decode eccd '%s' : %v", config.DefConfig.O3Eccd, err))
+	}
+
+	fmt.Println("config.DefConfig.O3ChainID", config.DefConfig.O3ChainID, "extraBytes", string(extraBytes), "O3Eccd", config.DefConfig.O3Eccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.O3ChainID, 10, "o3",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("o3 chain %d already registered", config.DefConfig.O3ChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("o3 chain %d already requested", config.DefConfig.O3ChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterO3 failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register o3 chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterHeco(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.HecoURL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(21)
+	extra := heco.ExtraInfo{
+		ChainID: chainID,
+		Period:  3,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+	log.Errorf("Heco Extra: %+v", extra)
+	log.Errorf("Heco Extra Bytes: %x", extraBytes)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.HecoEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterHeco, failed to decode eccd '%s' : %v", config.DefConfig.HecoEccd, err))
+	}
+
+	fmt.Println("config.DefConfig.HecoChainID: ", config.DefConfig.HecoChainID, "extraBytes: ", string(extraBytes), "HecoEccd: ", config.DefConfig.HecoEccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.HecoChainID, utils.HECO_ROUTER, "heco",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("heco chain %d already registered", config.DefConfig.HecoChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("heco chain %d already requested", config.DefConfig.HecoChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterHeco failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register heco chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterBSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	tool := eth.NewEthTools(config.DefConfig.BSCURL)
+	chainID, err := tool.GetChainID()
+	if err != nil {
+		panic(err)
+	}
+
+	blkToWait := uint64(15)
+	extra := bsc.ExtraInfo{
+		ChainID: chainID,
+	}
+
+	extraBytes, _ := json.Marshal(extra)
+
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BscEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterBSC, failed to decode eccd '%s' : %v", config.DefConfig.BscEccd, err))
+	}
+
+	fmt.Println("config.DefConfig.BSCChainID", config.DefConfig.BscChainID, "extraBytes", string(extraBytes), "BscEccd", config.DefConfig.BscEccd)
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.BscChainID, 6, "bsc",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("bsc chain %d already registered", config.DefConfig.BscChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("bsc chain %d already requested", config.DefConfig.BscChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterBSC failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register bsc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterZIL(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+
+	type ExtraInfo struct {
+		NumOfGuardList int
+	}
+
+	numOfGuardList := 0
+	zilSdk := provider.NewProvider(config.DefConfig.ZilURL)
+	dsComm, err := zilSdk.GetCurrentDSComm()
+	if err != nil {
+		panic(fmt.Errorf("RegisterZIL failed: %s", err.Error()))
+	}
+	numOfGuardList = dsComm.NumOfDSGuard
+
+	fmt.Println("register zil")
+	blkToWait := uint64(15)
+
+	extra := ExtraInfo{NumOfGuardList: numOfGuardList}
+	extraBytes, _ := json.Marshal(extra)
+
+	// todo cross chain manger or its proxy
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.ZilEccdImpl, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterZIL, failed to decode eccd '%s' : %v", config.DefConfig.ZilEccdImpl, err))
+	}
+
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.ZilChainID, 9, "zil",
+		blkToWait, eccd, extraBytes, acc)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("zil chain %d already registered", config.DefConfig.ZilChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("zil chain %d already requested", config.DefConfig.ZilChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterZIL failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register zil chain: ( txhash: %s )", txhash.ToHexString())
+	return true
+}
+
+func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.OntChainID, 3, "ont",
+		1, []byte{}, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("ont chain %d already registered", config.DefConfig.OntChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("ont chain %d already requested", config.DefConfig.OntChainID)
 			return true
 		}
 		panic(fmt.Errorf("RegisterOntChain failed: %v", err))
@@ -717,27 +1941,6 @@ func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register ont chain: ( txhash: %s )", txhash.ToHexString())
-
-	return true
-}
-
-func RegisterNeoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, 4, 4, "neo",
-		1, []byte{}, acc)
-	if err != nil {
-		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("neo chain %d already registered", 4)
-			return false
-		}
-		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("neo chain %d already requested", 4)
-			return true
-		}
-		panic(fmt.Errorf("RegisterNeoChain failed: %v", err))
-	}
-
-	testcase.WaitPolyTx(txhash, poly)
-	log.Infof("successful to register neo chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
@@ -761,7 +1964,7 @@ func UpdateBtc(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	rawTy := make([]byte, 8)
 	binary.LittleEndian.PutUint64(rawTy, uint64(tyNet))
 
-	if err := updateSideChain(poly, acc, config.BTC_CHAIN_ID, blkToWait, "btc", rawTy); err != nil {
+	if err := updateSideChain(poly, acc, config.DefConfig.BtcChainID, 1, blkToWait, "btc", rawTy); err != nil {
 		log.Errorf("failed to update btc: %v", err)
 		return false
 	}
@@ -779,16 +1982,44 @@ func UpdateEth(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("failed to decode eccd: %v", err)
 		return false
 	}
-	if err = updateSideChain(poly, acc, config.ETH_CHAIN_ID, blkToWait, "eth", eccd); err != nil {
+	if err = updateSideChain(poly, acc, config.DefConfig.EthChainID, 2, blkToWait, "eth", eccd); err != nil {
 		log.Errorf("failed to update eth: %v", err)
 		return false
 	}
 	return true
 }
 
-func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, blkToWait uint64, name string,
+func UpdateNeo(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := common2.AddressFromHexString(strings.TrimPrefix(config.DefConfig.NeoCCMC, "0x"))
+	if err != nil {
+		log.Errorf("failed to decode eccd: %v", err)
+		return false
+	}
+	if err = updateSideChain(poly, acc, config.DefConfig.NeoChainID, 4, blkToWait, "NEO", eccd[:]); err != nil {
+		log.Errorf("failed to update neo: %v", err)
+		return false
+	}
+	return true
+}
+
+func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	neo3Ccmc := helper3.HexToBytes(config.DefConfig.Neo3CCMC)
+	if len(neo3Ccmc) != 4 { //uint32
+		log.Errorf("incorrect Neo3CCMC length")
+		return false
+	}
+	if err := updateSideChain(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+		log.Errorf("failed to update neo3: %v", err)
+		return false
+	}
+	return true
+}
+
+func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
 	ccmc []byte) error {
-	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, chainId, name, blkToWait, ccmc, acc)
+	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, router, name, blkToWait, ccmc, acc)
 	if err != nil {
 		return err
 	}
@@ -1049,6 +2280,102 @@ func GetRelayer(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) {
 		panic(err)
 	}
 	log.Infof("get relayer success: %s", addr.ToBase58())
+}
+
+func RegisterStateValidator(poly *poly_go_sdk.PolySdk, neo3PubKeys []string, signer *poly_go_sdk.Account) uint64 {
+	txhash, err := poly.Native.Sm.RegisterStateValidator(neo3PubKeys, signer)
+	if err != nil {
+		panic(err)
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register neo3 state validators, txHash is %s", txhash.ToHexString())
+	event, err := poly.GetSmartContractEvent(txhash.ToHexString())
+	if err != nil {
+		panic(err)
+	}
+	var id uint64
+	for _, e := range event.Notify {
+		states := e.States.([]interface{})
+		if states[0].(string) == "putStateValidatorApply" {
+			id = uint64(states[1].(float64))
+		}
+	}
+	return id
+}
+
+func ApproveRegisterStateValidator(poly *poly_go_sdk.PolySdk, id uint64, accArr []*poly_go_sdk.Account) {
+	var (
+		txhash common.Uint256
+		err    error
+	)
+	for i, v := range accArr {
+		txhash, err = poly.Native.Sm.ApproveRegisterStateValidator(id, v)
+		if err != nil {
+			panic(fmt.Errorf("no%d - failed to approve %d: %v", i, id, err))
+		}
+		log.Infof("No%d: successful to approve register state validators id %d: ( acc: %s, txHash: %s )",
+			i, id, v.Address.ToHexString(), txhash.ToHexString())
+		testcase.WaitPolyTx(txhash, poly)
+	}
+}
+
+func RemoveStateValidator(poly *poly_go_sdk.PolySdk, neo3PubKeys []string, signer *poly_go_sdk.Account) uint64 {
+	txhash, err := poly.Native.Sm.RemoveStateValidator(neo3PubKeys, signer)
+	if err != nil {
+		panic(err)
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to remove neo3 state validators, txHash is %s", txhash.ToHexString())
+	event, err := poly.GetSmartContractEvent(txhash.ToHexString())
+	if err != nil {
+		panic(err)
+	}
+	var id uint64
+	for _, e := range event.Notify {
+		states := e.States.([]interface{})
+		if states[0].(string) == "putStateValidatorRemove" {
+			id = uint64(states[1].(float64))
+		}
+	}
+	return id
+}
+
+func ApproveRemoveStateValidator(poly *poly_go_sdk.PolySdk, id uint64, accArr []*poly_go_sdk.Account) {
+	var (
+		txhash common.Uint256
+		err    error
+	)
+	for i, v := range accArr {
+		txhash, err = poly.Native.Sm.ApproveRemoveStateValidator(id, v)
+		if err != nil {
+			panic(fmt.Errorf("no%d - failed to approve %d: %v", i, id, err))
+		}
+		log.Infof("No%d: successful to approve remove state validators id %d: ( acc: %s, txHash: %s )",
+			i, id, v.Address.ToHexString(), txhash.ToHexString())
+	}
+	testcase.WaitPolyTx(txhash, poly)
+}
+
+func GetStateValidator(poly *poly_go_sdk.PolySdk) {
+	raw, err := poly.GetStorage(utils.Neo3StateManagerContractAddress.ToHexString(), append([]byte(neo3_state_manager.STATE_VALIDATOR)))
+	if err != nil {
+		panic(err)
+	}
+	if len(raw) == 0 {
+		log.Infof("no state validators found")
+		return
+	}
+	svBytes, err := states.GetValueFromRawStorageItem(raw)
+	if err != nil {
+		panic(err)
+	}
+	svs, err := neo3_state_manager.DeserializeStringArray(svBytes)
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range svs {
+		log.Infof("neo3 state validator pubKey: %s", v)
+	}
 }
 
 func QuitSideChain(poly *poly_go_sdk.PolySdk, id uint64, acc *poly_go_sdk.Account) {

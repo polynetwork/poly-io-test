@@ -19,19 +19,21 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/polynetwork/poly-go-sdk"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	_ "github.com/polynetwork/poly-io-test/testcase"
 	"github.com/polynetwork/poly-io-test/testframework"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 var (
@@ -59,21 +61,50 @@ func main() {
 		panic(err)
 	}
 
-	ethInvoker := eth.NewEInvoker()
-	btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
-		config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
-		config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
-	if err != nil {
-		log.Errorf("failed to new a btc invoker, do not test cases about BTC: %v", err)
+	var (
+		ethInvoker *eth.EInvoker
+		bscInvoker *eth.EInvoker
+		mscInvoker *eth.EInvoker
+		o3Invoker  *eth.EInvoker
+		cmInvoker  *cosmos.CosmosInvoker
+	)
+	if config.DefConfig.EthChainID > 0 {
+		ethInvoker = eth.NewEInvoker(config.DefConfig.EthChainID)
 	}
+
+	if config.DefConfig.BscChainID > 0 {
+		bscInvoker = eth.NewEInvoker(config.DefConfig.BscChainID)
+	}
+
+	if config.DefConfig.MscChainID > 0 {
+		mscInvoker = eth.NewEInvoker(config.DefConfig.MscChainID)
+	}
+
+	if config.DefConfig.O3ChainID > 0 {
+		o3Invoker = eth.NewEInvoker(config.DefConfig.O3ChainID)
+	}
+
+	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
+	//	config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
+	//	config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
+	//if err != nil {
+	//	log.Errorf("failed to new a btc invoker, do not test cases about BTC: %v", err)
+	//}
 	ontInvoker, err := ont.NewOntInvoker(config.DefConfig.OntJsonRpcAddress, config.DefConfig.OntContractsAvmPath,
 		config.DefConfig.OntWallet, config.DefConfig.OntWalletPassword)
 	if err != nil {
-		log.Errorf("failed to new a ont invoker, do not test cases about ONT: %v", err)
+		log.Warnf("failed to new a ont invoker, do not test cases about ONT: %v", err)
 	}
-	cmInvoker, err := cosmos.NewCosmosInvoker()
+	if config.DefConfig.CMCrossChainId > 0 {
+		cmInvoker, err = cosmos.NewCosmosInvoker()
+		if err != nil {
+			log.Warnf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+		}
+	}
+
+	neoInvoker, err := neo.NewNeoInvoker()
 	if err != nil {
-		log.Errorf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+		log.Warnf("failed to new a neo invoker, do not test cases about NEO: %v", err)
 	}
 
 	testCases := make([]string, 0)
@@ -81,10 +112,22 @@ func main() {
 		testCases = strings.Split(TestCases, ",")
 	}
 	testframework.TFramework.SetRcSdk(rcSdk)
-	testframework.TFramework.SetEthInvoker(ethInvoker)
-	testframework.TFramework.SetBtcInvoker(btcInvoker)
+	if ethInvoker != nil {
+		testframework.TFramework.SetEthInvoker(ethInvoker)
+	}
+	if bscInvoker != nil {
+		testframework.TFramework.SetBSCInvoker(bscInvoker)
+	}
+	if mscInvoker != nil {
+		testframework.TFramework.SetMSCInvoker(mscInvoker)
+	}
+	if o3Invoker != nil {
+		testframework.TFramework.SetO3Invoker(o3Invoker)
+	}
+	//testframework.TFramework.SetBtcInvoker(btcInvoker)
 	testframework.TFramework.SetOntInvoker(ontInvoker)
 	testframework.TFramework.SetCosmosInvoker(cmInvoker)
+	testframework.TFramework.SetNeoInvoker(neoInvoker)
 
 	//Start run test case
 	testframework.TFramework.Run(testCases, LoopNumber)

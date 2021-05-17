@@ -23,19 +23,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/polynetwork/poly-io-test/chains/eth/abi/eccm"
-	"github.com/polynetwork/poly-io-test/log"
 	"io/ioutil"
 	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
+	"github.com/polynetwork/poly-io-test/log"
 )
 
 type ETHTools struct {
@@ -135,6 +136,15 @@ func (self *ETHTools) GetNodeHeight() (uint64, error) {
 	}
 }
 
+func (self *ETHTools) GetBlockHeaderByHash(hash common.Hash) (*types.Header, error) {
+	b, err := self.ethclient.BlockByHash(context.Background(), hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Header(), nil
+}
+
 func (self *ETHTools) GetBlockHeader(height uint64) (*types.Header, error) {
 	params := []interface{}{fmt.Sprintf("0x%x", height), true}
 	req := &BlockReq{
@@ -160,9 +170,13 @@ func (self *ETHTools) GetBlockHeader(height uint64) (*types.Header, error) {
 	return rsp.Result, nil
 }
 
+func (self *ETHTools) GetChainID() (*big.Int, error) {
+	return self.ethclient.ChainID(context.Background())
+}
+
 func (self *ETHTools) GetSmartContractEventByBlock(contractAddr string, height uint64) ([]*LockEvent, []*UnlockEvent, error) {
 	eccmAddr := common.HexToAddress(contractAddr)
-	instance, err := eccm.NewEthCrossChainManager(eccmAddr, self.ethclient)
+	instance, err := eccm_abi.NewEthCrossChainManager(eccmAddr, self.ethclient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("GetSmartContractEventByBlock, error: %s", err.Error())
 	}
@@ -311,11 +325,16 @@ func (self *ETHTools) WaitTransactionsConfirm(hashs []common.Hash) {
 }
 
 func (self *ETHTools) WaitTransactionConfirm(hash common.Hash) {
+	start := time.Now()
 	for {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 100)
+		if time.Now().After(start.Add(time.Second * 10)) {
+			log.Errorf("WaitTransactionConfirm max wait time exceeded, quit")
+			return
+		}
 		_, ispending, err := self.ethclient.TransactionByHash(context.Background(), hash)
 		if err != nil {
-			log.Errorf("failed to call TransactionByHash: %v", err)
+			log.Errorf("failed to call TransactionByHash: %v hash:%s", err, hash.String())
 			continue
 		}
 		if ispending == true {
