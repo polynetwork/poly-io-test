@@ -24,9 +24,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/polynetwork/poly/core/states"
 	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
-	"io/ioutil"
 
 	"math/big"
 	"os"
@@ -321,6 +322,9 @@ func main() {
 		if UpdateNeo3(poly, acc) {
 			ApproveUpdateChain(config.DefConfig.Neo3ChainID, poly, accArr)
 		}
+
+	case "update_ok":
+		UpdateOK(poly, acc)
 
 	case "init_ont_acc":
 		err := InitOntAcc()
@@ -2016,6 +2020,20 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	}
 	if err := updateSideChain(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
+		return false
+	}
+	return true
+}
+
+func UpdateOK(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.OkEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("UpdateOK, failed to decode eccd '%s' : %v", config.DefConfig.OkEccd, err))
+	}
+
+	if err := updateSideChain(poly, acc, config.DefConfig.OkChainID, 12, blkToWait, "okex", eccd); err != nil {
+		log.Errorf("failed to update ok: %v", err)
 		return false
 	}
 	return true
