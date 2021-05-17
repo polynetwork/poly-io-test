@@ -29,7 +29,7 @@ require (
 	github.com/polynetwork/btc-vendor-tools v0.0.0-20200813091748-3b19a5fd7666
 	github.com/polynetwork/cosmos-poly-module v0.0.0-20200810030259-95d586518759
 	github.com/polynetwork/eth-contracts v0.0.0-20200903021827-c9212e419943
-	github.com/polynetwork/poly v0.0.0-20201216061550-50185057319d
+	github.com/polynetwork/poly v0.0.0-20210112063446-24e3d053e9d6
 	github.com/polynetwork/poly-go-sdk v0.0.0-20200817120957-365691ad3493
 	github.com/prometheus/tsdb v0.9.1 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
