@@ -49,6 +49,6 @@ replace github.com/polynetwork/poly => github.com/joeqian10/poly v0.0.0-20210513
 
 //replace github.com/polynetwork/poly-go-sdk => github.com/zhiqiangxu/poly-go-sdk v0.0.0-20201215024222-5d728b68e651
 
-replace github.com/polynetwork/poly-go-sdk => github.com/joeqian10/poly-go-sdk v0.0.0-20210514100309-bcf795207785
+replace github.com/polynetwork/poly-go-sdk => github.com/joeqian10/poly-go-sdk v0.0.0-20210517032637-3bc9e7c4f5c9
 
 replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
