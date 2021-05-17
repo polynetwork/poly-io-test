@@ -933,6 +933,10 @@ func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 	}
 
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	if err != nil {
+		log.Infof("fail to sync poly genesis header to OK: %v signer:%s", err, signer.Address.Hex())
+		return
+	}
 	log.Infof("successful to sync poly genesis header to OK: ( txhash: %s )", tx.Hash().String())
 }
 
