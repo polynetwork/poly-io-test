@@ -126,7 +126,7 @@ func init() {
 	flag.Uint64Var(&chainId, "chainid", 0, "default 0 means all chains")
 	flag.Uint64Var(&fabricRelayerTy, "fab_relayer_type", 1, "the relayer of fabric type: how many orgs need to sign CA for relayer")
 
-	flag.StringVar(&neo3StateValidators, "neo3statevalidators", "", "neo3 state root validator public keys in compressed format")
+	flag.StringVar(&neo3StateValidators, "neo3_state_validators", "", "neo3 state root validator public keys in compressed format")
 
 	flag.Parse()
 }
