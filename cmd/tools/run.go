@@ -1642,8 +1642,10 @@ func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool
 	if len(neo3Ccmc) != 4 {
 		panic(fmt.Errorf("incorrect Neo3CCMC length"))
 	}
-	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
-		blkToWait, neo3Ccmc[:], acc)
+	//txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
+	//	blkToWait, neo3Ccmc[:], acc)
+	txHash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
+		blkToWait, neo3Ccmc[:], helper3.UInt32ToBytes(config.DefConfig.Neo3Magic), acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
 			log.Infof("neo3 chain %d already registered", config.DefConfig.Neo3ChainID)
@@ -2010,7 +2012,7 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("incorrect Neo3CCMC length")
 		return false
 	}
-	if err := updateSideChain(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+	if err := updateSideChainExt(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", helper3.UInt32ToBytes(config.DefConfig.Neo3Magic), neo3Ccmc[:]); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
 		return false
 	}
@@ -2020,6 +2022,18 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
 	ccmc []byte) error {
 	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, router, name, blkToWait, ccmc, acc)
+	if err != nil {
+		return err
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to update %s: ( txhash: %s )", name, txhash.ToHexString())
+	return nil
+}
+
+func updateSideChainExt(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
+	ccmc []byte, extra []byte) error {
+	txhash, err := poly.Native.Scm.UpdateSideChainExt(acc.Address, chainId, router, name, blkToWait, ccmc, extra, acc)
 	if err != nil {
 		return err
 	}
