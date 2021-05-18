@@ -2020,7 +2020,7 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("incorrect Neo3CCMC length")
 		return false
 	}
-	if err := updateSideChainExt(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", helper3.UInt32ToBytes(config.DefConfig.Neo3Magic), neo3Ccmc[:]); err != nil {
+	if err := updateSideChainExt(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:], helper3.UInt32ToBytes(config.DefConfig.Neo3Magic)); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
 		return false
 	}
