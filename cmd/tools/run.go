@@ -24,9 +24,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/polynetwork/poly/core/states"
 	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
-	"io/ioutil"
 
 	"math/big"
 	"os"
@@ -67,6 +68,7 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/kai/client"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
@@ -209,6 +211,11 @@ func main() {
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
 			}
+
+		case config.DefConfig.KaiChainID:
+			if RegisterKai(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
+			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
@@ -245,6 +252,9 @@ func main() {
 			}
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
+			}
+			if RegisterKai(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
 			}
 		}
 	case "sync_genesis_header":
@@ -1392,6 +1402,35 @@ func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Acco
 	return nil
 }
 
+func SyncKaiGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	client, err := client.Dial(config.DefConfig.KaiUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	header, err := client.FullHeaderByNumber(context.Background(), big.NewInt(config.DefConfig.KaiEpoch))
+	if err != nil {
+		panic(err)
+	}
+
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.KaiChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("kai already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync kai genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+}
+
 func SyncCosmosGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
 
 	invoker, err := cosmos2.NewCosmosInvoker()
@@ -1943,6 +1982,29 @@ func RegisterOntChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	log.Infof("successful to register ont chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
+}
+
+func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 11, "kai",
+		blkToWait, []byte{}, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("Kardia chain %d already registered", config.DefConfig.KaiChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("Kardia chain %d already requested", config.DefConfig.KaiChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterKai failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register kardia chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+
 }
 
 func UpdateBtc(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
