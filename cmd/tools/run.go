@@ -294,6 +294,8 @@ func main() {
 			SyncMSCGenesisHeader(poly, accArr)
 		case config.DefConfig.OkChainID:
 			SyncOKGenesisHeader(poly, accArr)
+		case config.DefConfig.KaiChainID:
+			SyncKaiGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -306,6 +308,7 @@ func main() {
 			SyncHecoGenesisHeader(poly, accArr)
 			SyncMSCGenesisHeader(poly, accArr)
 			SyncOKGenesisHeader(poly, accArr)
+			SyncKaiGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
