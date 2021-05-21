@@ -51,7 +51,7 @@ type TestConfig struct {
 	MscChainID  uint64
 	OkChainID   uint64
 	KaiChainID  uint64
-
+	
 	BtcRestAddr                  string
 	BtcRestUser                  string
 	BtcRestPwd                   string
@@ -205,6 +205,7 @@ type TestConfig struct {
 	HecoUSDC      string
 	HecoNeo       string
 	HecoRenBTC    string
+	
 	// kai contracts: auto set after deploy
 	KaiEccd      string
 	KaiEccm      string
@@ -220,6 +221,7 @@ type TestConfig struct {
 	KaiUSDC      string
 	KaiNeo       string
 	KaiRenBTC    string
+	
 	// o3 contracts: auto set after deploy
 	O3Eccd      string
 	O3Eccm      string

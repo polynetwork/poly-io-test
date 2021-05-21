@@ -47,7 +47,6 @@ require (
 
 replace github.com/polynetwork/eth-contracts => github.com/zouxyan/eth-contracts v0.0.0-20210115072359-e4cac6edc20c
 
-// replace github.com/polynetwork/poly => github.com/dogecoindev/poly v1.4.1-0.20210518074110-d2d669433554 // kai
 replace github.com/polynetwork/poly => github.com/joeqian10/poly v0.0.0-20210513061019-474879d3ddcd
 
 //replace github.com/polynetwork/poly-go-sdk => github.com/zhiqiangxu/poly-go-sdk v0.0.0-20201215024222-5d728b68e651
