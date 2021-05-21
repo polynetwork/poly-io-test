@@ -53,7 +53,7 @@ func NewInvoker(chainID uint64) *Invoker {
 	}
 	instance.client = client
 	instance.NM = NewNonceManager(client)
-	instance.signer, err = NewSigner(config.DefConfig.KaiUrl)
+	instance.signer, err = NewSigner(config.DefConfig.KaiPrivateKey)
 	if err != nil {
 		panic(err)
 	}
