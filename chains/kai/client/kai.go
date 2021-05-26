@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -34,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polynetwork/poly-io-test/log"
 
+	"github.com/kardiachain/go-kardia"
 	ktypes "github.com/kardiachain/go-kardia/types"
 )
 
@@ -166,20 +168,15 @@ func (tx *rpcTransaction) UnmarshalJSON(msg []byte) error {
 }
 
 // TransactionByHash returns the transaction with the given hash.
-func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error) {
-	var json *rpcTransaction
-	err = ec.c.CallContext(ctx, &json, "kai_getTransactionByHash", hash)
+func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *ktypes.Transaction, err error) {
+	var raw *ktypes.Transaction
+	err = ec.c.CallContext(ctx, &raw, "tx_getTransaction", hash)
 	if err != nil {
-		return nil, false, err
-	} else if json == nil {
-		return nil, false, ethereum.NotFound
-	} else if _, r, _ := json.tx.RawSignatureValues(); r == nil {
-		return nil, false, fmt.Errorf("server returned transaction without signature")
+		return nil, err
+	} else if raw == nil {
+		return nil, kardia.NotFound
 	}
-	if json.From != nil && json.BlockHash != nil {
-		setSenderFromServer(json.tx, *json.From, *json.BlockHash)
-	}
-	return json.tx, json.BlockNumber == nil, nil
+	return raw, nil
 }
 
 // TransactionSender returns the sender address of the given transaction. The transaction
@@ -243,7 +240,7 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 // Note that the receipt is not available for pending transactions.
 func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	var r *types.Receipt
-	err := ec.c.CallContext(ctx, &r, "kai_getTransactionReceipt", txHash)
+	err := ec.c.CallContext(ctx, &r, "tx_getTransactionReceipt", txHash)
 	if err == nil {
 		if r == nil {
 			return nil, ethereum.NotFound
@@ -345,7 +342,7 @@ func (ec *Client) CodeAt(ctx context.Context, account common.Address, blockNumbe
 // The block number can be nil, in which case the nonce is taken from the latest known block.
 func (ec *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	var result hexutil.Uint64
-	err := ec.c.CallContext(ctx, &result, "kai_getTransactionCount", account, toBlockNumArg(blockNumber))
+	err := ec.c.CallContext(ctx, &result, "account_nonceAtHeight", account, toBlockNumArg(blockNumber))
 	return uint64(result), err
 }
 
@@ -445,9 +442,12 @@ func (ec *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]
 // PendingNonceAt returns the account nonce of the given account in the pending state.
 // This is the nonce that should be used for the next transaction.
 func (ec *Client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	var result hexutil.Uint64
-	err := ec.c.CallContext(ctx, &result, "kai_getTransactionCount", account, "pending")
-	return uint64(result), err
+	var result uint64
+	err := ec.c.CallContext(ctx, &result, "account_nonceAtHeight", account, "pending")
+	if err != nil {
+		return 0, err
+	}
+	return result, err
 }
 
 // PendingTransactionCount returns the total number of transactions in the pending state.
@@ -469,7 +469,7 @@ func (ec *Client) PendingTransactionCount(ctx context.Context) (uint, error) {
 // blocks might not be available.
 func (ec *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	var hex hexutil.Bytes
-	err := ec.c.CallContext(ctx, &hex, "kai_call", toCallArg(msg), toBlockNumArg(blockNumber))
+	err := ec.c.CallContext(ctx, &hex, "kai_kardiaCall", toCallArg(msg), toBlockNumArg(blockNumber))
 	if err != nil {
 		return nil, err
 	}
@@ -490,11 +490,15 @@ func (ec *Client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg)
 // SuggestGasPrice retrieves the currently suggested gas price to allow a timely
 // execution of a transaction.
 func (ec *Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	var hex hexutil.Big
-	if err := ec.c.CallContext(ctx, &hex, "kai_gasPrice"); err != nil {
+	var gasPriceStr string
+	if err := ec.c.CallContext(ctx, &gasPriceStr, "kai_gasPrice"); err != nil {
 		return nil, err
 	}
-	return (*big.Int)(&hex), nil
+	gasPrice, err := strconv.Atoi(gasPriceStr)
+	if err != nil {
+		return nil, err
+	}
+	return big.NewInt(int64(gasPrice)), nil
 }
 
 // EstimateGas tries to estimate the gas needed to execute a specific transaction based on
@@ -519,7 +523,7 @@ func (ec *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	if err != nil {
 		return err
 	}
-	return ec.c.CallContext(ctx, nil, "kai_sendRawTransaction", hexutil.Encode(data))
+	return ec.c.CallContext(ctx, nil, "tx_sendRawTransaction", hexutil.Encode(data))
 }
 
 func toCallArg(msg ethereum.CallMsg) interface{} {
@@ -543,6 +547,7 @@ func toCallArg(msg ethereum.CallMsg) interface{} {
 }
 
 func (ec *Client) WaitTransactionConfirm(hash common.Hash) {
+	ctx := context.Background()
 	start := time.Now()
 	for {
 		time.Sleep(time.Millisecond * 100)
@@ -550,12 +555,18 @@ func (ec *Client) WaitTransactionConfirm(hash common.Hash) {
 			log.Errorf("WaitTransactionConfirm max wait time exceeded, quit")
 			return
 		}
-		_, ispending, err := ec.TransactionByHash(context.Background(), hash)
+		_, err := ec.TransactionByHash(context.Background(), hash)
 		if err != nil {
 			log.Errorf("failed to call TransactionByHash: %v hash:%s", err, hash.String())
 			continue
 		}
-		if ispending == true {
+
+		receipt, err := ec.TransactionReceipt(ctx, hash)
+		if err != nil {
+			log.Errorf("failed to call TransactionReceipt: %v hash:%s", err, hash.String())
+			continue
+		}
+		if receipt == nil {
 			continue
 		} else {
 			break

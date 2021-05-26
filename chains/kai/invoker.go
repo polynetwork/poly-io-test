@@ -115,11 +115,11 @@ func (i *Invoker) MakeSmartContractAuth() (*bind.TransactOpts, error) {
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	nonce, err := i.client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
-		return nil, fmt.Errorf("MakeSmartContractAuth, %v", err)
+		return nil, fmt.Errorf("MakeSmartContractAuth PendingNonceAt, %v", err)
 	}
 	gasPrice, err := i.client.SuggestGasPrice(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("MakeSmartContractAuth, %v", err)
+		return nil, fmt.Errorf("MakeSmartContractAuth SuggestGasPrice, %v", err)
 	}
 	auth := bind.NewKeyedTransactor(i.PrivateKey)
 	auth.Nonce = big.NewInt(int64(nonce))

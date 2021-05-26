@@ -39,7 +39,7 @@
 	"CMEpoch": 1,
 	"RCWallet": ".wallets/wallet.dat",
 	"RCWalletPwd": "",
-	"RchainJsonRpcAddress": "http://poly:20336",
+	"RchainJsonRpcAddress": "http://138.91.6.226:40336",
 	"RCEpoch": 0,
 	"ReportInterval": 60,
 	"ReportDir": "./report",
@@ -70,7 +70,7 @@
 
 	"KaiUrl": "https://dev-6.kardiachain.io",
 	"KaiEpoch": 1,
-	"KaiPrivateKey": "0x8468546595e96bae824160b2f019d0007f5f16f412923abdc4753f2f7d4562e8",
+	"KaiPrivateKey": "8468546595e96bae824160b2f019d0007f5f16f412923abdc4753f2f7d4562e8",
 	"KaiChainID": 138
 
 }
