@@ -2360,7 +2360,7 @@ func GetRelayer(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) {
 
 func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	blkToWait := uint64(1)
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 12, "kai",
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 13, "kai",
 		blkToWait, []byte{}, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
