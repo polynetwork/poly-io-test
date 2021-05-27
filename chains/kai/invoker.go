@@ -22,8 +22,8 @@ import (
 	"github.com/polynetwork/eth-contracts/go_abi/oep4_abi"
 	"github.com/polynetwork/eth-contracts/go_abi/ongx_abi"
 	"github.com/polynetwork/eth-contracts/go_abi/ontx_abi"
+	"github.com/polynetwork/kai-relayer/kaiclient"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/kai/client"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 )
@@ -37,7 +37,7 @@ type Invoker struct {
 	PrivateKey     *ecdsa.PrivateKey
 	ChainID        uint64
 	TConfiguration *config.TestConfig
-	client         *client.Client
+	client         *kaiclient.Client
 	NM             *NonceManager
 	signer         *signer
 }
@@ -47,7 +47,7 @@ func NewInvoker(chainID uint64) *Invoker {
 	instance := &Invoker{}
 	instance.ChainID = chainID
 	instance.TConfiguration = config.DefConfig
-	client, err := client.Dial(config.DefConfig.KaiUrl)
+	client, err := kaiclient.Dial(config.DefConfig.KaiUrl)
 	if err != nil {
 		panic(err)
 	}
@@ -317,7 +317,7 @@ func (i *Invoker) TransferOwnershipForECCM(eccmAddrHex, ownershipAddressHex stri
 	return tx, nil
 }
 
-func (i *Invoker) Client() *client.Client {
+func (i *Invoker) Client() *kaiclient.Client {
 	return i.client
 }
 

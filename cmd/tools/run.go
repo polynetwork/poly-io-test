@@ -65,10 +65,10 @@ import (
 	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
 	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 
+	"github.com/polynetwork/kai-relayer/kaiclient"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/kai/client"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
@@ -1298,7 +1298,7 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 }
 
 func SyncKaiGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
-	client, err := client.Dial(config.DefConfig.KaiUrl)
+	client, err := kaiclient.Dial(config.DefConfig.KaiUrl)
 	if err != nil {
 		panic(err)
 	}

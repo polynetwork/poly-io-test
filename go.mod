@@ -12,7 +12,7 @@ require (
 	github.com/cespare/cp v1.1.1 // indirect
 	github.com/cosmos/cosmos-sdk v0.39.2
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.15
+	github.com/ethereum/go-ethereum v1.9.18
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/golang/mock v1.5.0 // indirect
@@ -20,7 +20,7 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/joeqian10/neo-gogogo v1.1.0
 	github.com/joeqian10/neo3-gogogo v0.3.2
-	github.com/kardiachain/go-kardia v1.1.1-0.20210518073513-843096e91762
+	github.com/kardiachain/go-kardia v1.1.1-0.20210518091640-d13a5b7f7c4c
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
@@ -30,6 +30,7 @@ require (
 	github.com/polynetwork/btc-vendor-tools v0.0.0-20200813091748-3b19a5fd7666
 	github.com/polynetwork/cosmos-poly-module v0.0.0-20200810030259-95d586518759
 	github.com/polynetwork/eth-contracts v0.0.0-20200903021827-c9212e419943
+	github.com/polynetwork/kai-relayer v0.0.0
 	github.com/polynetwork/poly v0.0.0-20210112063446-24e3d053e9d6
 	github.com/polynetwork/poly-go-sdk v0.0.0-20200817120957-365691ad3493
 	github.com/rjeczalik/notify v0.9.2 // indirect
@@ -54,3 +55,5 @@ replace github.com/polynetwork/poly => github.com/joeqian10/poly v0.0.0-20210513
 replace github.com/polynetwork/poly-go-sdk => github.com/joeqian10/poly-go-sdk v0.0.0-20210517072349-71002ebfdf13
 
 //replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
+
+replace github.com/polynetwork/kai-relayer => github.com/dogecoindev/kai-relayer v0.0.0-20210527043015-bc1790a88bc5
