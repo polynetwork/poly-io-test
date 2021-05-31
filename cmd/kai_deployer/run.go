@@ -95,7 +95,7 @@ func DeploySmartContract() {
 	if err != nil {
 		panic(fmt.Errorf("failed to approve erc20 to lockproxy: %v", err))
 	}
-	invoker.ETHUtil.WaitTransactionConfirm(tx.Hash())
+	invoker.Client().WaitTransactionConfirm(tx.Hash())
 
 	oep4Addr, _, err := invoker.DeployOEP4(lockproxyAddrHex)
 	if err != nil {
