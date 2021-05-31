@@ -69,7 +69,7 @@
 	"Erc20ValLimit": 1000,
 
 	"KaiUrl": "https://dev-6.kardiachain.io",
-	"KaiEpoch": 1,
+	"KaiEpoch": 584820,
 	"KaiPrivateKey": "8468546595e96bae824160b2f019d0007f5f16f412923abdc4753f2f7d4562e8",
 	"KaiChainID": 138
 
