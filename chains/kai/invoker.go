@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	ethComm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,13 +34,12 @@ var (
 )
 
 type Invoker struct {
-	eth.EInvoker
 	PrivateKey     *ecdsa.PrivateKey
 	ChainID        uint64
 	TConfiguration *config.TestConfig
 	client         *kaiclient.Client
 	NM             *NonceManager
-	signer         *signer
+	Signer         *Signer
 }
 
 func NewInvoker(chainID uint64) *Invoker {
@@ -53,11 +53,11 @@ func NewInvoker(chainID uint64) *Invoker {
 	}
 	instance.client = client
 	instance.NM = NewNonceManager(client)
-	instance.signer, err = NewSigner(config.DefConfig.KaiPrivateKey)
+	instance.Signer, err = NewSigner(config.DefConfig.KaiPrivateKey)
 	if err != nil {
 		panic(err)
 	}
-	instance.PrivateKey = instance.signer.PrivateKey
+	instance.PrivateKey = instance.Signer.PrivateKey
 	return instance
 }
 
@@ -102,7 +102,7 @@ func (ethInvoker *Invoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetHa
 	if err != nil {
 		return nil, err
 	}
-	ethInvoker.ETHUtil.WaitTransactionConfirm(tx.Hash())
+	ethInvoker.client.WaitTransactionConfirm(tx.Hash())
 	return tx, nil
 }
 
@@ -326,7 +326,7 @@ func (i *Invoker) GetAccInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err := i.client.BalanceAt(context.Background(), i.signer.Address, big.NewInt(int64(h)))
+	val, err := i.client.BalanceAt(context.Background(), i.Signer.Address, big.NewInt(int64(h)))
 	if err != nil {
 		return "", err
 	}
@@ -336,7 +336,7 @@ func (i *Invoker) GetAccInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err = ontx.BalanceOf(nil, i.signer.Address)
+	val, err = ontx.BalanceOf(nil, i.Signer.Address)
 	if err != nil {
 		return "", err
 	}
@@ -346,7 +346,7 @@ func (i *Invoker) GetAccInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err = ongx.BalanceOf(nil, i.signer.Address)
+	val, err = ongx.BalanceOf(nil, i.Signer.Address)
 	if err != nil {
 		return "", err
 	}
@@ -356,7 +356,7 @@ func (i *Invoker) GetAccInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err = oep4x.BalanceOf(nil, i.signer.Address)
+	val, err = oep4x.BalanceOf(nil, i.Signer.Address)
 	if err != nil {
 		return "", err
 	}
@@ -366,7 +366,7 @@ func (i *Invoker) GetAccInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err = erc20.BalanceOf(nil, i.signer.Address)
+	val, err = erc20.BalanceOf(nil, i.Signer.Address)
 	if err != nil {
 		return "", err
 	}
@@ -376,12 +376,94 @@ func (i *Invoker) GetAccInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	val, err = btcx.BalanceOf(nil, i.signer.Address)
+	val, err = btcx.BalanceOf(nil, i.Signer.Address)
 	if err != nil {
 		return "", err
 	}
 	btcxInfo := fmt.Sprintf("btcx: %d", val.Uint64())
 
 	return fmt.Sprintf("ETHEREUM: acc: %s, asset: [ %s, %s, %s, %s, %s, %s ]",
-		i.signer.Address.String(), ethInfo, ontInfo, ongInfo, oep4Info, erc20Info, btcxInfo), nil
+		i.Signer.Address.String(), ethInfo, ontInfo, ongInfo, oep4Info, erc20Info, btcxInfo), nil
+}
+
+func (i *Invoker) GetSmartContractEventByBlock(contractAddr string, height uint64) ([]*eth.LockEvent, []*eth.UnlockEvent, error) {
+	eccmAddr := common.HexToAddress(contractAddr)
+	instance, err := eccm_abi.NewEthCrossChainManager(eccmAddr, i.client)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetSmartContractEventByBlock, error: %s", err.Error())
+	}
+
+	opt := &bind.FilterOpts{
+		Start:   height,
+		End:     &height,
+		Context: context.Background(),
+	}
+
+	ethlockevents := make([]*eth.LockEvent, 0)
+	{
+		events, err := instance.FilterCrossChainEvent(opt, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("GetSmartContractEventByBlock, error :%s", err.Error())
+		}
+
+		if events == nil {
+			return nil, nil, fmt.Errorf("GetSmartContractEventByBlock - no events found on FilterCrossChainEvent")
+		}
+
+		for events.Next() {
+			evt := events.Event
+			ethlockevents = append(ethlockevents, &eth.LockEvent{
+				Method:   "lock",
+				TxHash:   evt.Raw.TxHash.String(),
+				Txid:     evt.TxId,
+				Saddress: evt.Sender.String(),
+				Tchain:   uint32(evt.ToChainId),
+				Value:    evt.Rawdata,
+				Height:   height,
+			})
+		}
+	}
+
+	ethunlockevents := make([]*eth.UnlockEvent, 0)
+	{
+		events, err := instance.FilterVerifyHeaderAndExecuteTxEvent(opt)
+		if err != nil {
+			return nil, nil, fmt.Errorf("GetSmartContractEventByBlock, error :%s", err.Error())
+		}
+
+		if events == nil {
+			return nil, nil, fmt.Errorf("GetSmartContractEventByBlock - no events found on FilterCrossChainEvent")
+		}
+
+		for events.Next() {
+			evt := events.Event
+			ethunlockevents = append(ethunlockevents, &eth.UnlockEvent{
+				Method:   "unlock",
+				Txid:     evt.Raw.TxHash.String(),
+				RTxid:    hex.EncodeToString(evt.CrossChainTxHash),
+				FromTxId: hex.EncodeToString(evt.FromChainTxHash),
+				Token:    hex.EncodeToString(evt.ToContract),
+				Height:   height,
+			})
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("GetSmartContractEventByBlock, error :%s", err.Error())
+		}
+
+		if events == nil {
+			return nil, nil, fmt.Errorf("GetSmartContractEventByBlock - no events found on FilterCrossChainEvent")
+		}
+
+		for events.Next() {
+			evt := events.Event
+			ethunlockevents = append(ethunlockevents, &eth.UnlockEvent{
+				Method: "unlock",
+				Txid:   evt.Raw.TxHash.String(),
+				RTxid:  hex.EncodeToString(evt.CrossChainTxHash),
+				Token:  hex.EncodeToString(evt.ToContract),
+				Height: height,
+			})
+		}
+	}
+	return ethlockevents, ethunlockevents, nil
 }

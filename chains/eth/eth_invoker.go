@@ -84,7 +84,7 @@ func (ethInvoker *EInvoker) url() string {
 	case ethInvoker.TConfiguration.OkChainID:
 		return ethInvoker.TConfiguration.OKURL
 	default:
-		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
+		panic(fmt.Sprintf("url:unknown chain id:%d", ethInvoker.ChainID))
 	}
 }
 
@@ -105,7 +105,7 @@ func (ethInvoker *EInvoker) privateKey() string {
 	case ethInvoker.TConfiguration.OkChainID:
 		return ethInvoker.TConfiguration.OKPrivateKey
 	default:
-		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
+		panic(fmt.Sprintf("privateKey:unknown chain id:%d", ethInvoker.ChainID))
 	}
 }
 

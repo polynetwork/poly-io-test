@@ -25,6 +25,7 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/kai"
 	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 )
@@ -44,11 +45,12 @@ type TestFrameworkContext struct {
 	OntInvoker *ont.OntInvoker
 	CMInvoker  *cosmos.CosmosInvoker
 	NeoInvoker *neo.NeoInvoker
+	KaiInvoker *kai.Invoker
 }
 
 //NewTestFrameworkContext return a TestFrameworkContext instance
 func NewTestFrameworkContext(fw *TestFramework, caseArr []TestCase, rcSdk *poly_go_sdk.PolySdk, eInvkr, bscInvkr, mscInvkr, o3Invkr *eth.EInvoker,
-	btcInvkr *btc.BtcInvoker, ontInvkr *ont.OntInvoker, cmInvoker *cosmos.CosmosInvoker, neoInvoker *neo.NeoInvoker) *TestFrameworkContext {
+	btcInvkr *btc.BtcInvoker, ontInvkr *ont.OntInvoker, cmInvoker *cosmos.CosmosInvoker, neoInvoker *neo.NeoInvoker, kaiInvoker *kai.Invoker) *TestFrameworkContext {
 	ctx := &TestFrameworkContext{
 		Framework:  fw,
 		Cases:      caseArr,
@@ -61,6 +63,7 @@ func NewTestFrameworkContext(fw *TestFramework, caseArr []TestCase, rcSdk *poly_
 		OntInvoker: ontInvkr,
 		CMInvoker:  cmInvoker,
 		NeoInvoker: neoInvoker,
+		KaiInvoker: kaiInvoker,
 	}
 	ctx.Status = NewCtxStatus(ctx)
 	return ctx
