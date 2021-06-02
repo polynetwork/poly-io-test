@@ -45,4 +45,4 @@ replace github.com/polynetwork/poly-go-sdk => github.com/joeqian10/poly-go-sdk v
 
 //replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
 
-replace github.com/polynetwork/kai-relayer => github.com/dogecoindev/kai-relayer v0.0.0-20210531024930-1ae441ffccb6
+replace github.com/polynetwork/kai-relayer => github.com/dogecoindev/kai-relayer v0.0.0-20210602042052-c1c2c1f145f3

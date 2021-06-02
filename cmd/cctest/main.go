@@ -28,6 +28,7 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/kai"
 	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
@@ -67,6 +68,9 @@ func main() {
 		mscInvoker *eth.EInvoker
 		o3Invoker  *eth.EInvoker
 		cmInvoker  *cosmos.CosmosInvoker
+		kaiInvoker *kai.Invoker
+		ontInvoker *ont.OntInvoker
+		neoInvoker *neo.NeoInvoker
 	)
 	if config.DefConfig.EthChainID > 0 {
 		ethInvoker = eth.NewEInvoker(config.DefConfig.EthChainID)
@@ -84,28 +88,32 @@ func main() {
 		o3Invoker = eth.NewEInvoker(config.DefConfig.O3ChainID)
 	}
 
+	if config.DefConfig.KaiChainID > 0 {
+		kaiInvoker = kai.NewInvoker(config.DefConfig.KaiChainID)
+	}
+
 	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,
 	//	config.DefConfig.RCWalletPwd, config.DefConfig.BtcRestAddr, config.DefConfig.BtcRestUser,
 	//	config.DefConfig.BtcRestPwd, config.DefConfig.BtcSignerPrivateKey)
 	//if err != nil {
 	//	log.Errorf("failed to new a btc invoker, do not test cases about BTC: %v", err)
 	//}
-	ontInvoker, err := ont.NewOntInvoker(config.DefConfig.OntJsonRpcAddress, config.DefConfig.OntContractsAvmPath,
-		config.DefConfig.OntWallet, config.DefConfig.OntWalletPassword)
-	if err != nil {
-		log.Warnf("failed to new a ont invoker, do not test cases about ONT: %v", err)
-	}
-	if config.DefConfig.CMCrossChainId > 0 {
-		cmInvoker, err = cosmos.NewCosmosInvoker()
-		if err != nil {
-			log.Warnf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
-		}
-	}
+	// ontInvoker, err := ont.NewOntInvoker(config.DefConfig.OntJsonRpcAddress, config.DefConfig.OntContractsAvmPath,
+	// 	config.DefConfig.OntWallet, config.DefConfig.OntWalletPassword)
+	// if err != nil {
+	// 	log.Warnf("failed to new a ont invoker, do not test cases about ONT: %v", err)
+	// }
+	// if config.DefConfig.CMCrossChainId > 0 {
+	// 	cmInvoker, err = cosmos.NewCosmosInvoker()
+	// 	if err != nil {
+	// 		log.Warnf("failed to new a cosmos invoker, do not test cases about COSMOS: %v", err)
+	// 	}
+	// }
 
-	neoInvoker, err := neo.NewNeoInvoker()
-	if err != nil {
-		log.Warnf("failed to new a neo invoker, do not test cases about NEO: %v", err)
-	}
+	// neoInvoker, err := neo.NewNeoInvoker()
+	// if err != nil {
+	// 	log.Warnf("failed to new a neo invoker, do not test cases about NEO: %v", err)
+	// }
 
 	testCases := make([]string, 0)
 	if TestCases != "" {
@@ -124,11 +132,24 @@ func main() {
 	if o3Invoker != nil {
 		testframework.TFramework.SetO3Invoker(o3Invoker)
 	}
-	//testframework.TFramework.SetBtcInvoker(btcInvoker)
-	testframework.TFramework.SetOntInvoker(ontInvoker)
-	testframework.TFramework.SetCosmosInvoker(cmInvoker)
-	testframework.TFramework.SetNeoInvoker(neoInvoker)
 
+	if kaiInvoker != nil {
+		testframework.TFramework.SeKaiInvoker(kaiInvoker)
+	}
+
+	//testframework.TFramework.SetBtcInvoker(btcInvoker)
+
+	if ontInvoker != nil {
+		testframework.TFramework.SetOntInvoker(ontInvoker)
+	}
+
+	if cmInvoker != nil {
+		testframework.TFramework.SetCosmosInvoker(cmInvoker)
+	}
+
+	if neoInvoker != nil {
+		testframework.TFramework.SetNeoInvoker(neoInvoker)
+	}
 	//Start run test case
 	testframework.TFramework.Run(testCases, LoopNumber)
 	waitToExit()

@@ -92,4 +92,7 @@ func init() {
 	testframework.TFramework.RegTestCase("BnbToEthOnce", BnbToEthOnce)
 	testframework.TFramework.RegTestCase("RenBTCCircle", RenBTCCircle)
 	testframework.TFramework.RegTestCase("EOntdToNeoAndBack", EOntdToNeoAndBack)
+
+	testframework.TFramework.RegTestCase("SendKaiToEthChain", SendKaiToEthChain)
+	testframework.TFramework.RegTestCase("SendEthToKaiChain", SendEthToKaiChain)
 }

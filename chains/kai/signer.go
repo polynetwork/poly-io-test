@@ -14,18 +14,18 @@ import (
 	"github.com/ontio/ontology/common"
 )
 
-type signer struct {
+type Signer struct {
 	PrivateKey *ecdsa.PrivateKey
 	Address    ethComm.Address
 }
 
-func NewSigner(privateKey string) (*signer, error) {
+func NewSigner(privateKey string) (*Signer, error) {
 	priKey, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("ApproveERC20, cannot decode private key")
 	}
 	address := crypto.PubkeyToAddress(priKey.PublicKey)
-	return &signer{
+	return &Signer{
 		PrivateKey: priKey,
 		Address:    address,
 	}, nil
