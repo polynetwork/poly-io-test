@@ -46,66 +46,56 @@ func SendEthToKaiChain(ctx *testframework.TestFrameworkContext, status *testfram
 }
 
 func SendKaiCrossEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
-	kClient := ctx.KaiInvoker.Client()
-	// _, err := ctx.KaiInvoker.BindAssetHash(
-	// 	config.DefConfig.KaiLockProxy,
-	// 	"C1c23a67aa919454e67061A6d9962d9EBbf05fad",
-	// 	"0000000000000000000000000000000000000000",
-	// 	config.DefConfig.EthChainID,
-	// 	1000,
-	// )
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	gasPrice, err := kClient.SuggestGasPrice(context.Background())
+	kclient := ctx.KaiInvoker.Client()
+	gasPrice, err := kclient.SuggestGasPrice(context.Background())
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, get suggest gas price failed error: %s", err.Error())
 	}
-	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	//gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+
 	contractabi, err := abi.JSON(strings.NewReader(lock_proxy_abi.LockProxyABI))
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, abi.JSON error:" + err.Error())
 	}
-
-	assetaddress := ethcommon.HexToAddress("C1c23a67aa919454e67061A6d9962d9EBbf05fad")
 	rawFrom := ctx.KaiInvoker.Signer.Address.Bytes()
-	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.EthChainID), rawFrom,
+	assetaddress := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
+	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.KaiChainID), rawFrom[:],
 		big.NewInt(int64(amount)))
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, contractabi.Pack error:" + err.Error())
 	}
+
 	contractAddr := ethcommon.HexToAddress(config.DefConfig.KaiLockProxy)
 	callMsg := ethereum.CallMsg{
 		From: ctx.KaiInvoker.Signer.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
-		Value: nil, Data: txData,
+		Value: big.NewInt(int64(amount)), Data: txData,
 	}
-	gasLimit, err := kClient.EstimateGas(context.Background(), callMsg)
+	gasLimit, err := kclient.EstimateGas(context.Background(), callMsg)
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, estimate gas limit error: %s", err.Error())
 	}
-	fmt.Println(gasLimit, "------------")
+
 	nonce := ctx.KaiInvoker.NM.GetAddressNonce(ctx.KaiInvoker.Signer.Address)
 	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
 	bf := new(bytes.Buffer)
-	_ = rlp.Encode(bf, tx)
+	rlp.Encode(bf, tx)
 
 	rawtx := hexutil.Encode(bf.Bytes())
 	unsignedTx, err := eth.DeserializeTx(rawtx)
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, eth.DeserializeTx error: %s", err.Error())
 	}
-	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.KaiInvoker.Signer.PrivateKey)
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.KaiInvoker.PrivateKey)
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, types.SignTx error: %s", err.Error())
 	}
 
-	err = kClient.SendTransaction(context.Background(), signedtx)
+	err = kclient.SendTransaction(context.Background(), signedtx)
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, send transaction error:%s", err.Error())
 	}
 	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"KaiToEth", time.Now()})
-	kClient.WaitTransactionConfirm(signedtx.Hash())
+	kclient.WaitTransactionConfirm(signedtx.Hash())
 	return nil
 }
 
@@ -159,7 +149,7 @@ func SendEthCrossKai(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return fmt.Errorf("SendEthCrossKai, send transaction error:%s", err.Error())
 	}
-	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"EthToOnt", time.Now()})
+	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"EthToKai", time.Now()})
 	ctx.EthInvoker.ETHUtil.WaitTransactionConfirm(signedtx.Hash())
 	return nil
 }
