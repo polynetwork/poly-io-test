@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/joeqian10/neo-gogogo/helper"
 	ontcommon "github.com/ontio/ontology/common"
+	utils2 "github.com/ontio/ontology/smartcontract/service/native/utils"
 	"github.com/polynetwork/eth-contracts/go_abi/btcx_abi"
 	"github.com/polynetwork/eth-contracts/go_abi/eccd_abi"
 	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
@@ -87,6 +88,8 @@ func (ethInvoker *Invoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetHa
 	} else if uint64(toChainId) == config.DefConfig.HecoChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.O3ChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.KaiChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.NeoChainID {
 		other, err := helper.UInt160FromString(toAssetHash)
@@ -319,6 +322,71 @@ func (i *Invoker) TransferOwnershipForECCM(eccmAddrHex, ownershipAddressHex stri
 
 func (i *Invoker) Client() *kaiclient.Client {
 	return i.client
+}
+
+func (i *Invoker) BindOntAsset(lockProxy, ontOnEth, ongOnEth, oep4OnEth, oep4OnOnt string) ([]*types.Transaction, error) {
+	auth, contract, err := i.MakeLockProxy(lockProxy)
+	if err != nil {
+		return nil, err
+	}
+	txs := make([]*types.Transaction, 0)
+
+	tx1, err := contract.BindAssetHash(auth, ethComm.HexToAddress(ontOnEth),
+		config.DefConfig.OntChainID, utils2.OntContractAddress[:])
+	if err != nil {
+		return nil, err
+	}
+	i.Client().WaitTransactionConfirm(tx1.Hash())
+	txs = append(txs, tx1)
+
+	auth, _ = i.MakeSmartContractAuth()
+	tx4, err := contract.BindAssetHash(auth, ethComm.HexToAddress(ontOnEth),
+		config.DefConfig.CMCrossChainId, []byte(config.CM_ONT))
+	if err != nil {
+		return nil, err
+	}
+	i.client.WaitTransactionConfirm(tx4.Hash())
+	txs = append(txs, tx4)
+
+	auth, _ = i.MakeSmartContractAuth()
+	tx2, err := contract.BindAssetHash(auth, ethComm.HexToAddress(ongOnEth),
+		config.DefConfig.OntChainID, utils2.OngContractAddress[:])
+	if err != nil {
+		return nil, err
+	}
+	i.client.WaitTransactionConfirm(tx2.Hash())
+	txs = append(txs, tx2)
+
+	auth, _ = i.MakeSmartContractAuth()
+	tx5, err := contract.BindAssetHash(auth, ethComm.HexToAddress(ongOnEth),
+		config.DefConfig.CMCrossChainId, []byte(config.CM_ONG))
+	if err != nil {
+		return nil, err
+	}
+	i.client.WaitTransactionConfirm(tx5.Hash())
+	txs = append(txs, tx5)
+
+	oep4, err := ontcommon.AddressFromHexString(oep4OnOnt)
+	if err != nil {
+		return nil, err
+	}
+	auth, _ = i.MakeSmartContractAuth()
+	tx3, err := contract.BindAssetHash(auth, ethComm.HexToAddress(oep4OnEth), config.DefConfig.OntChainID, oep4[:])
+	if err != nil {
+		return nil, err
+	}
+	i.client.WaitTransactionConfirm(tx3.Hash())
+	txs = append(txs, tx3)
+
+	auth, _ = i.MakeSmartContractAuth()
+	tx6, err := contract.BindAssetHash(auth, ethComm.HexToAddress(oep4OnEth), config.DefConfig.CMCrossChainId, []byte(config.CM_OEP4))
+	if err != nil {
+		return nil, err
+	}
+	i.client.WaitTransactionConfirm(tx6.Hash())
+	txs = append(txs, tx6)
+
+	return txs, nil
 }
 
 func (i *Invoker) GetAccInfo() (string, error) {
