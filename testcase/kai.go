@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/polynetwork/eth-contracts/go_abi/lock_proxy_abi"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/kai"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testframework"
@@ -154,7 +153,7 @@ func SendEthCrossKai(ctx *testframework.TestFrameworkContext, status *testframew
 	return nil
 }
 
-func MakeKaiAuth(signer *kai.Signer, nonce, gasPrice, gasLimit uint64) *bind.TransactOpts {
+func MakeKaiAuth(signer *eth.EthSigner, nonce, gasPrice, gasLimit uint64) *bind.TransactOpts {
 	auth := bind.NewKeyedTransactor(signer.PrivateKey)
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(int64(0)) // in wei
