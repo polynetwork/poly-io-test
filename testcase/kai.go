@@ -24,7 +24,7 @@ import (
 )
 
 func SendKaiToEthChain(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
-	err := SendKaiCrossEth(ctx, status, GetRandAmount(config.DefConfig.OntValLimit, 1))
+	err := SendKaiCrossEth(ctx, status, 1000000000000000000)
 	if err != nil {
 		log.Error("SendKaiToEthChain: %s", err)
 		return false
@@ -46,7 +46,7 @@ func SendEthToKaiChain(ctx *testframework.TestFrameworkContext, status *testfram
 }
 
 func SendKaiCrossEth(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus, amount uint64) error {
-	kclient := ctx.KaiInvoker.Client()
+	kclient := ctx.KaiInvoker.ETHUtil.GetEthClient()
 	gasPrice, err := kclient.SuggestGasPrice(context.Background())
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, get suggest gas price failed error: %s", err.Error())
@@ -57,7 +57,7 @@ func SendKaiCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return fmt.Errorf("SendKaiCrossEth, abi.JSON error:" + err.Error())
 	}
-	rawFrom := ctx.KaiInvoker.Signer.Address.Bytes()
+	rawFrom := ctx.KaiInvoker.EthTestSigner.Address.Bytes()
 	assetaddress := ethcommon.HexToAddress("0000000000000000000000000000000000000000")
 	txData, err := contractabi.Pack("lock", assetaddress, uint64(config.DefConfig.KaiChainID), rawFrom[:],
 		big.NewInt(int64(amount)))
@@ -67,7 +67,7 @@ func SendKaiCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 
 	contractAddr := ethcommon.HexToAddress(config.DefConfig.KaiLockProxy)
 	callMsg := ethereum.CallMsg{
-		From: ctx.KaiInvoker.Signer.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		From: ctx.KaiInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
 		Value: big.NewInt(int64(amount)), Data: txData,
 	}
 	gasLimit, err := kclient.EstimateGas(context.Background(), callMsg)
@@ -75,7 +75,7 @@ func SendKaiCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 		return fmt.Errorf("SendKaiCrossEth, estimate gas limit error: %s", err.Error())
 	}
 
-	nonce := ctx.KaiInvoker.NM.GetAddressNonce(ctx.KaiInvoker.Signer.Address)
+	nonce := ctx.KaiInvoker.NM.GetAddressNonce(ctx.KaiInvoker.EthTestSigner.Address)
 	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
 	bf := new(bytes.Buffer)
 	rlp.Encode(bf, tx)
@@ -95,7 +95,7 @@ func SendKaiCrossEth(ctx *testframework.TestFrameworkContext, status *testframew
 		return fmt.Errorf("SendKaiCrossEth, send transaction error:%s", err.Error())
 	}
 	status.AddTx(signedtx.Hash().String()[2:], &testframework.TxInfo{"KaiToEth", time.Now()})
-	kclient.WaitTransactionConfirm(signedtx.Hash())
+	ctx.KaiInvoker.ETHUtil.WaitTransactionConfirm(signedtx.Hash())
 	return nil
 }
 
@@ -122,7 +122,7 @@ func SendEthCrossKai(ctx *testframework.TestFrameworkContext, status *testframew
 
 	contractAddr := ethcommon.HexToAddress(config.DefConfig.KaiLockProxy)
 	callMsg := ethereum.CallMsg{
-		From: ctx.KaiInvoker.Signer.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
+		From: ctx.KaiInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
 		Value: big.NewInt(int64(amount)), Data: txData,
 	}
 	gasLimit, err := client.EstimateGas(context.Background(), callMsg)
@@ -130,7 +130,7 @@ func SendEthCrossKai(ctx *testframework.TestFrameworkContext, status *testframew
 		return fmt.Errorf("SendEthCrossKai, estimate gas limit error: %s", err.Error())
 	}
 
-	nonce := ctx.KaiInvoker.NM.GetAddressNonce(ctx.KaiInvoker.Signer.Address)
+	nonce := ctx.KaiInvoker.NM.GetAddressNonce(ctx.KaiInvoker.EthTestSigner.Address)
 	tx := types.NewTransaction(nonce, contractAddr, big.NewInt(int64(amount)), gasLimit, gasPrice, txData)
 	bf := new(bytes.Buffer)
 	_ = rlp.Encode(bf, tx)
@@ -140,7 +140,7 @@ func SendEthCrossKai(ctx *testframework.TestFrameworkContext, status *testframew
 	if err != nil {
 		return fmt.Errorf("SendEthCrossKai, eth.DeserializeTx error: %s", err.Error())
 	}
-	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.KaiInvoker.Signer.PrivateKey)
+	signedtx, err := types.SignTx(unsignedTx, types.HomesteadSigner{}, ctx.KaiInvoker.EthTestSigner.PrivateKey)
 	if err != nil {
 		return fmt.Errorf("SendEthCrossKai, types.SignTx error: %s", err.Error())
 	}

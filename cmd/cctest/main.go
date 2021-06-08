@@ -28,7 +28,6 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/kai"
 	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
@@ -68,7 +67,7 @@ func main() {
 		mscInvoker *eth.EInvoker
 		o3Invoker  *eth.EInvoker
 		cmInvoker  *cosmos.CosmosInvoker
-		kaiInvoker *kai.Invoker
+		kaiInvoker *eth.EInvoker
 		ontInvoker *ont.OntInvoker
 		neoInvoker *neo.NeoInvoker
 	)
@@ -89,7 +88,7 @@ func main() {
 	}
 
 	if config.DefConfig.KaiChainID > 0 {
-		kaiInvoker = kai.NewInvoker(config.DefConfig.KaiChainID)
+		kaiInvoker = eth.NewEInvoker(config.DefConfig.KaiChainID)
 	}
 
 	//btcInvoker, err := btc.NewBtcInvoker(config.DefConfig.RchainJsonRpcAddress, config.DefConfig.RCWallet,

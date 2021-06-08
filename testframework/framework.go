@@ -26,7 +26,6 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
-	"github.com/polynetwork/poly-io-test/chains/kai"
 	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
@@ -64,7 +63,7 @@ type TestFramework struct {
 	ontInvoker    *ont.OntInvoker
 	cosmosInvoker *cosmos.CosmosInvoker
 	neoInvoker    *neo.NeoInvoker
-	kaiInvoker    *kai.Invoker
+	kaiInvoker    *eth.EInvoker
 }
 
 //NewTestFramework return a TestFramework instance
@@ -200,7 +199,7 @@ func (this *TestFramework) SetO3Invoker(invoker *eth.EInvoker) {
 }
 
 //SetO3Invoker instance to test framework
-func (this *TestFramework) SeKaiInvoker(invoker *kai.Invoker) {
+func (this *TestFramework) SeKaiInvoker(invoker *eth.EInvoker) {
 	this.kaiInvoker = invoker
 }
 

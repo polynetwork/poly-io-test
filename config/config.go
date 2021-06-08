@@ -35,6 +35,8 @@ const (
 	CM_ONT   = "ontx"
 	CM_ONG   = "ongx"
 	CM_OEP4  = "oep4x"
+	CM_KRC20 = "krc20"
+	CM_KAIX  = "kaix"
 )
 
 //Config object used by ontology-instance
@@ -265,6 +267,7 @@ type TestConfig struct {
 	// ont contracts: auto set after deploy
 	OntErc20            string
 	OntBep20            string
+	OntKrc20            string
 	OntOep4             string
 	OntLockProxy        string
 	OntEth              string
@@ -277,6 +280,7 @@ type TestConfig struct {
 	OntONTD             string
 	OntRenBTC           string
 	BtcoContractAddress string
+	OntKai              string
 
 	// neo
 	NeoCCMC      string
