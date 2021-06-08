@@ -1,20 +1,18 @@
 package testframework
 
 import (
-	"context"
 	"encoding/hex"
 	"math/big"
 	"os"
 	"time"
 
-	"github.com/polynetwork/poly-io-test/chains/kai"
+	"github.com/polynetwork/poly-io-test/chains/eth"
 	"github.com/polynetwork/poly-io-test/log"
 )
 
 func MonitorKai(ctx *TestFrameworkContext) {
 	invoker := ctx.KaiInvoker
-	ctx2 := context.Background()
-	currentHeight, err := invoker.Client().BlockNumber(ctx2)
+	currentHeight, err := invoker.ETHUtil.GetNodeHeight()
 	if err != nil {
 		log.Errorf("MonitorEthChain - ctx.EthTools.GetNodeHeight error: %s", err)
 		os.Exit(1)
@@ -24,7 +22,7 @@ func MonitorKai(ctx *TestFrameworkContext) {
 	for {
 		select {
 		case <-updateTicker.C:
-			currentHeight, err := invoker.Client().BlockNumber(ctx2)
+			currentHeight, err := invoker.ETHUtil.GetNodeHeight()
 			if err != nil {
 				log.Errorf("ctx.EthTools.GetNodeHeight error: %s", err)
 				continue
@@ -45,9 +43,9 @@ func MonitorKai(ctx *TestFrameworkContext) {
 	}
 }
 
-func parseKaiChainBlock(ctx *TestFrameworkContext, invoker *kai.Invoker, height uint32) error {
+func parseKaiChainBlock(ctx *TestFrameworkContext, invoker *eth.EInvoker, height uint32) error {
 	// contract is different
-	lockevents, unlockevents, err := invoker.GetSmartContractEventByBlock(getEccm(invoker.ChainID), uint64(height))
+	lockevents, unlockevents, err := invoker.ETHUtil.GetSmartContractEventByBlock(getEccm(invoker.ChainID), uint64(height))
 	if err != nil {
 		return err
 	}

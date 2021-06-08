@@ -262,6 +262,10 @@ github.com/dogecoindev/kai-relayer v0.0.0-20210602041540-c6aba2dd1cc5 h1:N1m+PXn
 github.com/dogecoindev/kai-relayer v0.0.0-20210602041540-c6aba2dd1cc5/go.mod h1:oUxckkLFb0IynGMKgJ4sIOwn3riZoDLpu5pDYyo2zdg=
 github.com/dogecoindev/kai-relayer v0.0.0-20210602042052-c1c2c1f145f3 h1:DGE+BwUN4X8045hHHMvi5VL32PKTX/3X1XOyqxIaoj8=
 github.com/dogecoindev/kai-relayer v0.0.0-20210602042052-c1c2c1f145f3/go.mod h1:oUxckkLFb0IynGMKgJ4sIOwn3riZoDLpu5pDYyo2zdg=
+github.com/dogecoindev/kai-relayer v0.0.0-20210608042742-840fea4203ea h1:FxXymOqH/C1C2uM2YG9of2Ov0/XbjL3ZYthit+gtnCw=
+github.com/dogecoindev/kai-relayer v0.0.0-20210608042742-840fea4203ea/go.mod h1:oUxckkLFb0IynGMKgJ4sIOwn3riZoDLpu5pDYyo2zdg=
+github.com/dogecoindev/kai-relayer v0.0.0-20210608044355-c91f4a1c9c7c h1:IuGJxABWUxPoKSKBWR+Rwq467uc7MvSoq3msnh62Ooo=
+github.com/dogecoindev/kai-relayer v0.0.0-20210608044355-c91f4a1c9c7c/go.mod h1:oUxckkLFb0IynGMKgJ4sIOwn3riZoDLpu5pDYyo2zdg=
 github.com/dop251/goja v0.0.0-20200219165308-d1232e640a87 h1:OMbqMXf9OAXzH1dDH82mQMrddBE8LIIwDtxeK4wE1/A=
 github.com/dop251/goja v0.0.0-20200219165308-d1232e640a87/go.mod h1:Mw6PkjjMXWbTj+nnj4s3QPXq1jaT0s5pC0iFD4+BOAA=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4 h1:qk/FSDDxo05wdJH28W+p5yivv7LuLYLRXPPD8KQCtZs=
