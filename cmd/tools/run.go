@@ -1631,6 +1631,31 @@ func RegisterBtcChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	return true
 }
 
+func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.KaiEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterKai, failed to decode eccd '%s' : %v", config.DefConfig.KaiEccd, err))
+	}
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 12, "kai",
+		blkToWait, eccd, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("eth chain %d already registered", config.DefConfig.KaiChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("eth chain %d already requested", config.DefConfig.KaiChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterKai failed: %v", err))
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register eth chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
 func RegisterEthChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	blkToWait := uint64(1)
 	if config.BtcNet.Name == "testnet3" {
@@ -2356,29 +2381,6 @@ func GetRelayer(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) {
 		panic(err)
 	}
 	log.Infof("get relayer success: %s", addr.ToBase58())
-}
-
-func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
-	blkToWait := uint64(1)
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 12, "kai",
-		blkToWait, []byte{}, acc)
-	if err != nil {
-		if strings.Contains(err.Error(), "already registered") {
-			log.Infof("Kardia chain %d already registered", config.DefConfig.KaiChainID)
-			return false
-		}
-		if strings.Contains(err.Error(), "already requested") {
-			log.Infof("Kardia chain %d already requested", config.DefConfig.KaiChainID)
-			return true
-		}
-		panic(fmt.Errorf("RegisterKai failed: %v", err))
-	}
-
-	testcase.WaitPolyTx(txhash, poly)
-	log.Infof("successful to register kardia chain: ( txhash: %s )", txhash.ToHexString())
-
-	return true
-
 }
 
 func RegisterStateValidator(poly *poly_go_sdk.PolySdk, neo3PubKeys []string, signer *poly_go_sdk.Account) uint64 {
