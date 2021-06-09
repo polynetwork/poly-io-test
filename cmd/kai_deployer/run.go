@@ -23,6 +23,7 @@ import (
 
 	common2 "github.com/ethereum/go-ethereum/common"
 	"github.com/ontio/ontology/common"
+	"github.com/polynetwork/poly-io-test/chains/eth"
 	"github.com/polynetwork/poly-io-test/config"
 )
 
@@ -54,7 +55,7 @@ func main() {
 }
 
 func DeployETHSmartContract() {
-	invoker := kai.NewInvoker(config.DefConfig.KaiChainID)
+	invoker := eth.NewEInvoker(config.DefConfig.KaiChainID)
 	var (
 		eccdAddr  common2.Address
 		eccmAddr  common2.Address
@@ -109,7 +110,7 @@ func DeployETHSmartContract() {
 	if err != nil {
 		panic(fmt.Errorf("failed to approve erc20 to lockproxy: %v", err))
 	}
-	invoker.Client().WaitTransactionConfirm(tx.Hash())
+	invoker.ETHUtil.WaitTransactionConfirm(tx.Hash())
 
 	oep4Addr, _, err := invoker.DeployOEP4(lockproxyAddrHex)
 	if err != nil {
@@ -149,14 +150,14 @@ func DeployETHSmartContract() {
 	}
 }
 
-func SetupERC20(ethInvoker *kai.Invoker) {
+func SetupERC20(ethInvoker *eth.EInvoker) {
 	if config.DefConfig.OntKrc20 != "" {
 		bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.KaiLockProxy, config.DefConfig.Krc20,
 			config.DefConfig.OntKrc20, config.DefConfig.OntChainID, 0)
 		if err != nil {
 			panic(fmt.Errorf("SetupERC20ToONT, failed to BindAssetHash: %v", err))
 		}
-		ethInvoker.Client().WaitTransactionConfirm(bindTx.Hash())
+		ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 		hash := bindTx.Hash()
 		fmt.Printf("binding erc20 of ontology on ethereum: ( txhash: %s )\n", hash.String())
 	}
@@ -166,56 +167,56 @@ func SetupERC20(ethInvoker *kai.Invoker) {
 	if err != nil {
 		panic(fmt.Errorf("SetupERC20ToONT, failed to BindAssetHash: %v", err))
 	}
-	ethInvoker.Client().WaitTransactionConfirm(bindTx.Hash())
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
 	fmt.Printf("binding erc20 of cosmos on ethereum: ( txhash: %s )\n", hash.String())
 }
 
-func SetupWBTC(ethInvoker *kai.Invoker) {
+func SetupWBTC(ethInvoker *eth.EInvoker) {
 	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.KaiLockProxy, config.DefConfig.KaiWBTC,
 		config.DefConfig.OntWBTC, config.DefConfig.OntChainID, 0)
 	if err != nil {
 		panic(fmt.Errorf("SetupWBTC, failed to BindAssetHash: %v", err))
 	}
-	ethInvoker.Client().WaitTransactionConfirm(bindTx.Hash())
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
 	fmt.Printf("binding WBTC of ontology on ethereum: ( txhash: %s )\n", hash.String())
 }
 
-func SetupDAI(ethInvoker *kai.Invoker) {
+func SetupDAI(ethInvoker *eth.EInvoker) {
 	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.KaiLockProxy, config.DefConfig.KaiDai,
 		config.DefConfig.OntDai, config.DefConfig.OntChainID, 0)
 	if err != nil {
 		panic(fmt.Errorf("SetupDAI, failed to BindAssetHash: %v", err))
 	}
-	ethInvoker.Client().WaitTransactionConfirm(bindTx.Hash())
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
 	fmt.Printf("binding DAI of ontology on ethereum: ( txhash: %s )\n", hash.String())
 }
 
-func SetupUSDT(ethInvoker *kai.Invoker) {
+func SetupUSDT(ethInvoker *eth.EInvoker) {
 	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.KaiLockProxy, config.DefConfig.KaiUSDT,
 		config.DefConfig.OntUSDT, config.DefConfig.OntChainID, 0)
 	if err != nil {
 		panic(fmt.Errorf("SetupUSDT, failed to BindAssetHash: %v", err))
 	}
-	ethInvoker.Client().WaitTransactionConfirm(bindTx.Hash())
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
 	fmt.Printf("binding USDT of ontology on ethereum: ( txhash: %s )\n", hash.String())
 }
 
-func SetupUSDC(ethInvoker *kai.Invoker) {
+func SetupUSDC(ethInvoker *eth.EInvoker) {
 	bindTx, err := ethInvoker.BindAssetHash(config.DefConfig.KaiLockProxy, config.DefConfig.KaiUSDC,
 		config.DefConfig.OntUSDC, config.DefConfig.OntChainID, 0)
 	if err != nil {
 		panic(fmt.Errorf("SetupUSDC, failed to BindAssetHash: %v", err))
 	}
-	ethInvoker.Client().WaitTransactionConfirm(bindTx.Hash())
+	ethInvoker.ETHUtil.WaitTransactionConfirm(bindTx.Hash())
 	hash := bindTx.Hash()
 	fmt.Printf("binding USDC of ontology on ethereum: ( txhash: %s )\n", hash.String())
 }
 
-func SetupOntAsset(invoker *kai.Invoker) {
+func SetupOntAsset(invoker *eth.EInvoker) {
 	if config.DefConfig.KaiLockProxy == "" {
 		panic(fmt.Errorf("EthLockProxy is blank"))
 	}
@@ -244,7 +245,7 @@ func SetupOntAsset(invoker *kai.Invoker) {
 	fmt.Printf("ont/ong/oep4 binding tx on cosmos: %s/%s/%s\n", hash4.String(), hash5.String(), hash6.String())
 }
 
-func SetupETH(ethInvoker *kai.Invoker) {
+func SetupETH(ethInvoker *eth.EInvoker) {
 	ethNativeAddr := "0x0000000000000000000000000000000000000000"
 	if config.DefConfig.OntKai != "" {
 		tx, err := ethInvoker.BindAssetHash(config.DefConfig.KaiLockProxy, ethNativeAddr, config.DefConfig.OntKai, config.DefConfig.OntChainID, 0)
@@ -270,7 +271,7 @@ func SetupETH(ethInvoker *kai.Invoker) {
 	fmt.Printf("binding eth of ethereum on ethereum: ( txhash: %s )\n", hash.String())
 }
 
-func SetOtherLockProxy(invoker *kai.Invoker) {
+func SetOtherLockProxy(invoker *eth.EInvoker) {
 	_, contract, err := invoker.MakeLockProxy(config.DefConfig.KaiLockProxy)
 	if err != nil {
 		panic(fmt.Errorf("failed to MakeLockProxy: %v", err))
@@ -289,7 +290,7 @@ func SetOtherLockProxy(invoker *kai.Invoker) {
 			panic(fmt.Errorf("failed to bind proxy: %"))
 		}
 		hash := tx.Hash()
-		invoker.Client().WaitTransactionConfirm(hash)
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
 		fmt.Printf("binding ont proxy: ( txhash: %s )\n", hash.String())
 	}
 
@@ -307,7 +308,7 @@ func SetOtherLockProxy(invoker *kai.Invoker) {
 			panic(fmt.Errorf("failed to bind COSMOS proxy: %v", err))
 		}
 		hash := tx.Hash()
-		invoker.Client().WaitTransactionConfirm(hash)
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
 		fmt.Printf("binding cosmos proxy: ( txhash: %s )\n", hash.String())
 	}
 
@@ -322,13 +323,13 @@ func SetOtherLockProxy(invoker *kai.Invoker) {
 			panic(fmt.Errorf("failed to bind proxy: %"))
 		}
 		hash := tx.Hash()
-		invoker.Client().WaitTransactionConfirm(hash)
+		invoker.ETHUtil.WaitTransactionConfirm(hash)
 		fmt.Printf("binding eth proxy: ( txhash: %s )\n", hash.String())
 	}
 }
 
 func SetUpEthContracts() {
-	invoker := kai.NewInvoker(config.DefConfig.KaiChainID)
+	invoker := eth.NewEInvoker(config.DefConfig.KaiChainID)
 	SetupETH(invoker)
 	if config.DefConfig.Krc20 != "" {
 		SetupERC20(invoker)
