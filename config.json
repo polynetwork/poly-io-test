@@ -10,7 +10,7 @@
 	"O3ChainID": 0,
 	"MscChainID": 0,
 	"OkChainID": 0,
-	"KaiChainID": 142,
+	"KaiChainID": 141,
 	"BtcRestAddr": "http://btc_node",
 	"BtcRestUser": "test",
 	"BtcRestPwd": "test",
