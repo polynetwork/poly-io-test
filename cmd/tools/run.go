@@ -1637,7 +1637,7 @@ func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	if err != nil {
 		panic(fmt.Errorf("RegisterKai, failed to decode eccd '%s' : %v", config.DefConfig.KaiEccd, err))
 	}
-	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 12, "kai",
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 13, "kai",
 		blkToWait, eccd, acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
