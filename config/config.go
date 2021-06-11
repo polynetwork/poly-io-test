@@ -35,6 +35,8 @@ const (
 	CM_ONT   = "ontx"
 	CM_ONG   = "ongx"
 	CM_OEP4  = "oep4x"
+	CM_KRC20 = "krc20"
+	CM_KAIX  = "kaix"
 )
 
 //Config object used by ontology-instance
@@ -51,7 +53,7 @@ type TestConfig struct {
 	MscChainID  uint64
 	OkChainID   uint64
 	KaiChainID  uint64
-	
+
 	BtcRestAddr                  string
 	BtcRestUser                  string
 	BtcRestPwd                   string
@@ -205,7 +207,7 @@ type TestConfig struct {
 	HecoUSDC      string
 	HecoNeo       string
 	HecoRenBTC    string
-	
+
 	// kai contracts: auto set after deploy
 	KaiEccd      string
 	KaiEccm      string
@@ -221,7 +223,7 @@ type TestConfig struct {
 	KaiUSDC      string
 	KaiNeo       string
 	KaiRenBTC    string
-	
+
 	// o3 contracts: auto set after deploy
 	O3Eccd      string
 	O3Eccm      string
@@ -265,6 +267,7 @@ type TestConfig struct {
 	// ont contracts: auto set after deploy
 	OntErc20            string
 	OntBep20            string
+	OntKrc20            string
 	OntOep4             string
 	OntLockProxy        string
 	OntEth              string
@@ -277,6 +280,7 @@ type TestConfig struct {
 	OntONTD             string
 	OntRenBTC           string
 	BtcoContractAddress string
+	OntKai              string
 
 	// neo
 	NeoCCMC      string
@@ -313,6 +317,7 @@ type TestConfig struct {
 	WBTCValLimit   uint64
 	USDCValLimit   uint64
 	RenBTCValLimit uint64
+	KaiValLimit    uint64
 
 	OntdValFloor uint64
 }
