@@ -1651,7 +1651,7 @@ func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		panic(fmt.Errorf("RegisterKai failed: %v", err))
 	}
 	testcase.WaitPolyTx(txhash, poly)
-	log.Infof("successful to register eth chain: ( txhash: %s )", txhash.ToHexString())
+	log.Infof("successful to register kai chain: ( chain_id:%s txhash: %s, eccd: %s )", config.DefConfig.KaiChainID, txhash.ToHexString(), config.DefConfig.KaiEccd)
 
 	return true
 }
