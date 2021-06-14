@@ -35,6 +35,8 @@ const (
 	CM_ONT   = "ontx"
 	CM_ONG   = "ongx"
 	CM_OEP4  = "oep4x"
+	CM_KRC20 = "krc20"
+	CM_KAIX  = "kaix"
 )
 
 //Config object used by ontology-instance
@@ -50,6 +52,7 @@ type TestConfig struct {
 	O3ChainID   uint64
 	MscChainID  uint64
 	OkChainID   uint64
+	KaiChainID  uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -125,6 +128,11 @@ type TestConfig struct {
 	Neo3AddressVersion byte
 	Neo3Epoch          uint32
 
+	// Kai Chain
+	KaiUrl        string
+	KaiPrivateKey string
+	KaiEpoch      int64
+
 	// relayer chain
 	RCWallet             string
 	RCWalletPwd          string
@@ -199,6 +207,23 @@ type TestConfig struct {
 	HecoUSDC      string
 	HecoNeo       string
 	HecoRenBTC    string
+
+	// kai contracts: auto set after deploy
+	KaiEccd      string
+	KaiEccm      string
+	KaiEccmp     string
+	KaiLockProxy string
+	Krc20        string
+	KaiOep4      string
+	KaiOngx      string
+	KaiOntx      string
+	KaiWBTC      string
+	KaiUSDT      string
+	KaiDai       string
+	KaiUSDC      string
+	KaiNeo       string
+	KaiRenBTC    string
+
 	// o3 contracts: auto set after deploy
 	O3Eccd      string
 	O3Eccm      string
@@ -242,6 +267,7 @@ type TestConfig struct {
 	// ont contracts: auto set after deploy
 	OntErc20            string
 	OntBep20            string
+	OntKrc20            string
 	OntOep4             string
 	OntLockProxy        string
 	OntEth              string
@@ -254,6 +280,7 @@ type TestConfig struct {
 	OntONTD             string
 	OntRenBTC           string
 	BtcoContractAddress string
+	OntKai              string
 
 	// neo
 	NeoCCMC      string
@@ -290,6 +317,7 @@ type TestConfig struct {
 	WBTCValLimit   uint64
 	USDCValLimit   uint64
 	RenBTCValLimit uint64
+	KaiValLimit    uint64
 
 	OntdValFloor uint64
 }

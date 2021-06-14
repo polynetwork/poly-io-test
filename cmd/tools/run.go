@@ -24,9 +24,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/polynetwork/poly/core/states"
 	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
-	"io/ioutil"
 
 	"math/big"
 	"os"
@@ -64,6 +65,7 @@ import (
 	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
 	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 
+	"github.com/polynetwork/kai-relayer/kaiclient"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
@@ -209,6 +211,10 @@ func main() {
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
 			}
+		case config.DefConfig.KaiChainID:
+			if RegisterKai(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
+			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
@@ -245,6 +251,9 @@ func main() {
 			}
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
+			}
+			if RegisterKai(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
 			}
 		}
 	case "sync_genesis_header":
@@ -284,6 +293,8 @@ func main() {
 			SyncMSCGenesisHeader(poly, accArr)
 		case config.DefConfig.OkChainID:
 			SyncOKGenesisHeader(poly, accArr)
+		case config.DefConfig.KaiChainID:
+			SyncKaiGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -296,6 +307,7 @@ func main() {
 			SyncHecoGenesisHeader(poly, accArr)
 			SyncMSCGenesisHeader(poly, accArr)
 			SyncOKGenesisHeader(poly, accArr)
+			SyncKaiGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
@@ -321,6 +333,9 @@ func main() {
 		if UpdateNeo3(poly, acc) {
 			ApproveUpdateChain(config.DefConfig.Neo3ChainID, poly, accArr)
 		}
+
+	case "update_ok":
+		UpdateOK(poly, acc)
 
 	case "init_ont_acc":
 		err := InitOntAcc()
@@ -933,6 +948,10 @@ func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 	}
 
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	if err != nil {
+		log.Infof("fail to sync poly genesis header to OK: %v signer:%s", err, signer.Address.Hex())
+		return
+	}
 	log.Infof("successful to sync poly genesis header to OK: ( txhash: %s )", tx.Hash().String())
 }
 
@@ -1278,6 +1297,35 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	return nil
 }
 
+func SyncKaiGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	client, err := kaiclient.Dial(config.DefConfig.KaiUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	header, err := client.FullHeaderByNumber(context.Background(), big.NewInt(config.DefConfig.KaiEpoch))
+	if err != nil {
+		panic(err)
+	}
+
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.KaiChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("kai already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync kai genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+}
+
 func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
 	cli := rpc3.NewClient(config.DefConfig.Neo3Url)
 	resp := cli.GetBlockHeader(strconv.Itoa(int(config.DefConfig.Neo3Epoch)))
@@ -1583,6 +1631,31 @@ func RegisterBtcChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	return true
 }
 
+func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.KaiEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterKai, failed to decode eccd '%s' : %v", config.DefConfig.KaiEccd, err))
+	}
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 12, "kai",
+		blkToWait, eccd, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("eth chain %d already registered", config.DefConfig.KaiChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("eth chain %d already requested", config.DefConfig.KaiChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterKai failed: %v", err))
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register kai chain: ( chain_id:%s txhash: %s, eccd: %s )", config.DefConfig.KaiChainID, txhash.ToHexString(), config.DefConfig.KaiEccd)
+
+	return true
+}
+
 func RegisterEthChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	blkToWait := uint64(1)
 	if config.BtcNet.Name == "testnet3" {
@@ -1642,8 +1715,10 @@ func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool
 	if len(neo3Ccmc) != 4 {
 		panic(fmt.Errorf("incorrect Neo3CCMC length"))
 	}
-	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
-		blkToWait, neo3Ccmc[:], acc)
+	//txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
+	//	blkToWait, neo3Ccmc[:], acc)
+	txHash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
+		blkToWait, neo3Ccmc[:], helper3.UInt32ToBytes(config.DefConfig.Neo3Magic), acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
 			log.Infof("neo3 chain %d already registered", config.DefConfig.Neo3ChainID)
@@ -2010,8 +2085,22 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("incorrect Neo3CCMC length")
 		return false
 	}
-	if err := updateSideChain(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+	if err := updateSideChainExt(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:], helper3.UInt32ToBytes(config.DefConfig.Neo3Magic)); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
+		return false
+	}
+	return true
+}
+
+func UpdateOK(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.OkEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("UpdateOK, failed to decode eccd '%s' : %v", config.DefConfig.OkEccd, err))
+	}
+
+	if err := updateSideChain(poly, acc, config.DefConfig.OkChainID, 12, blkToWait, "okex", eccd); err != nil {
+		log.Errorf("failed to update ok: %v", err)
 		return false
 	}
 	return true
@@ -2020,6 +2109,18 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
 	ccmc []byte) error {
 	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, router, name, blkToWait, ccmc, acc)
+	if err != nil {
+		return err
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to update %s: ( txhash: %s )", name, txhash.ToHexString())
+	return nil
+}
+
+func updateSideChainExt(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
+	ccmc []byte, extra []byte) error {
+	txhash, err := poly.Native.Scm.UpdateSideChainExt(acc.Address, chainId, router, name, blkToWait, ccmc, extra, acc)
 	if err != nil {
 		return err
 	}
