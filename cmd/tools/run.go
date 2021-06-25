@@ -19,14 +19,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/elliptic"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/polynetwork/poly/core/states"
 	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
-	"io/ioutil"
 
 	"math/big"
 	"os"
@@ -40,20 +42,26 @@ import (
 	"github.com/Zilliqa/gozilliqa-sdk/provider"
 	zilutil "github.com/Zilliqa/gozilliqa-sdk/util"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/wire"
 	types3 "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	common3 "github.com/ethereum/go-ethereum/common"
 	"github.com/joeqian10/neo-gogogo/block"
+	"github.com/joeqian10/neo-gogogo/helper"
 	"github.com/joeqian10/neo-gogogo/helper/io"
 	"github.com/joeqian10/neo-gogogo/rpc"
+	"github.com/joeqian10/neo-gogogo/sc"
+	"github.com/joeqian10/neo-gogogo/tx"
 
 	block3 "github.com/joeqian10/neo3-gogogo/block"
 	helper3 "github.com/joeqian10/neo3-gogogo/helper"
 	io3 "github.com/joeqian10/neo3-gogogo/io"
 	rpc3 "github.com/joeqian10/neo3-gogogo/rpc"
+	"github.com/ontio/ontology-crypto/ec"
 	"github.com/ontio/ontology-crypto/keypair"
+	"github.com/ontio/ontology-crypto/sm2"
 	ontology_go_sdk "github.com/ontio/ontology-go-sdk"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/types"
@@ -67,6 +75,7 @@ import (
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
+	"github.com/polynetwork/poly-io-test/chains/neo"
 	"github.com/polynetwork/poly-io-test/chains/ont"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
@@ -1247,6 +1256,51 @@ func SyncOntGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	log.Infof("successful to sync poly genesis header to Ontology: ( txhash: %s )", txHash.ToHexString())
 }
 
+func getUncompressedKey(key keypair.PublicKey) []byte {
+	var buff bytes.Buffer
+	switch t := key.(type) {
+	case *ec.PublicKey:
+		switch t.Algorithm {
+		case ec.ECDSA:
+			// Take P-256 as a special case
+			if t.Params().Name == elliptic.P256().Params().Name {
+				return ec.EncodePublicKey(t.PublicKey, false)
+			}
+			buff.WriteByte(byte(0x12))
+		case ec.SM2:
+			buff.WriteByte(byte(0x13))
+		}
+		label, err := getCurveLabel(t.Curve.Params().Name)
+		if err != nil {
+			panic(err)
+		}
+		buff.WriteByte(label)
+		buff.Write(ec.EncodePublicKey(t.PublicKey, false))
+	default:
+		panic("err")
+	}
+	return buff.Bytes()
+}
+
+func getCurveLabel(name string) (byte, error) {
+	switch strings.ToUpper(name) {
+	case strings.ToUpper(elliptic.P224().Params().Name):
+		return 1, nil
+	case strings.ToUpper(elliptic.P256().Params().Name):
+		return 2, nil
+	case strings.ToUpper(elliptic.P384().Params().Name):
+		return 3, nil
+	case strings.ToUpper(elliptic.P521().Params().Name):
+		return 4, nil
+	case strings.ToUpper(sm2.SM2P256V1().Params().Name):
+		return 20, nil
+	case strings.ToUpper(btcec.S256().Name):
+		return 5, nil
+	default:
+		panic("err")
+	}
+}
+
 func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
 	cli := rpc.NewClient(config.DefConfig.NeoUrl)
 	resp := cli.GetBlockHeaderByIndex(config.DefConfig.NeoEpoch)
@@ -1274,7 +1328,98 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 		testcase.WaitPolyTx(txhash, poly)
 		log.Infof("successful to sync neo genesis header: ( txhash: %s )", txhash.ToHexString())
 	}
+	block, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	headerBytes := block.Header.GetMessage()
+	// raw header
+	cp1 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: headerBytes,
+	}
+	log.Infof("raw header: %s", helper.BytesToHex(headerBytes))
 
+	// public keys
+	bs := []byte{}
+	blkInfo := &vconfig.VbftBlockInfo{}
+	_ = json.Unmarshal(block.Header.ConsensusPayload, blkInfo) // already checked before
+	if blkInfo.NewChainConfig != nil {
+		var bookkeepers []keypair.PublicKey
+		for _, peer := range blkInfo.NewChainConfig.Peers {
+			keyBytes, _ := hex.DecodeString(peer.ID)
+			key, _ := keypair.DeserializePublicKey(keyBytes) // compressed
+			bookkeepers = append(bookkeepers, key)
+		}
+		bookkeepers = keypair.SortPublicKeys(bookkeepers)
+		for _, key := range bookkeepers {
+			uncompressed := getUncompressedKey(key)
+			bs = append(bs, uncompressed...)
+		}
+	}
+	cp2 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: bs,
+	}
+	log.Infof("pub keys: %s", helper.BytesToHex(bs))
+
+	/*
+		// signatures
+		bs2 := []byte{}
+		for _, sig := range block.Header.SigData {
+			newSig, _ := signature.ConvertToEthCompatible(sig) // convert to eth
+			bs2 = append(bs2, newSig...)
+		}
+		cp3 := sc.ContractParameter{
+			Type:  sc.ByteArray,
+			Value: bs2,
+		}
+		log.Infof("signature: %s", helper.BytesToHex(bs2))
+	*/
+
+	// build script
+	sb := sc.NewScriptBuilder()
+	scriptHash := helper.HexToBytes(config.DefConfig.NeoCCMC) // hex string to little endian byte[]
+	sb.MakeInvocationScript(scriptHash, "InitGenesisBlock", []sc.ContractParameter{cp1, cp2})
+
+	script := sb.ToArray()
+
+	tb := tx.NewTransactionBuilder(config.DefConfig.NeoUrl)
+	w := neo.LoadAccount()
+	from, err := helper.AddressToScriptHash(w.Address)
+	// create an InvocationTransaction
+	sysFee := helper.Fixed8FromFloat64(config.DefConfig.NeoSysFee)
+	netFee := helper.Fixed8FromFloat64(config.DefConfig.NeoNetFee)
+	itx, err := tb.MakeInvocationTransaction(script, from, nil, from, sysFee, netFee)
+	if err != nil {
+		return fmt.Errorf("[InitGenesisBlock] tb.MakeInvocationTransaction error: %s", err)
+	}
+	// sign transaction
+	err = tx.AddSignature(itx, w.KeyPair)
+	if err != nil {
+		return fmt.Errorf("[InitGenesisBlock] tx.AddSignature error: %s", err)
+	}
+
+	rawTxString := itx.RawTransactionString()
+	log.Infof("rawTxString: %s", rawTxString)
+	// send the raw transaction
+	response := cli.SendRawTransaction(rawTxString)
+	if response.HasError() {
+		return fmt.Errorf("[InitGenesisBlock] SendRawTransaction error: %s, "+
+			"unsigned header hex string: %s, "+
+			"public keys hex string: %s, "+
+			"script hex string: %s, "+
+			"changeBookKeeper RawTransactionString: %s",
+			response.ErrorResponse.Error.Message,
+			helper.BytesToHex(headerBytes),
+			helper.BytesToHex(bs),
+			helper.BytesToHex(script),
+			rawTxString)
+	}
+
+	log.Infof("[InitGenesisBlock] neoTxHash is: %s", itx.HashString())
+	hash, _ := helper.UInt256FromString(itx.HashString())
+	neo.WaitNeoTx(cli, hash)
 	return nil
 }
 

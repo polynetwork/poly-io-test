@@ -113,9 +113,12 @@ type TestConfig struct {
 	CMEpoch        int64
 
 	// neo chain conf
-	NeoUrl   string
-	NeoWif   string
-	NeoEpoch uint32
+	NeoUrl        string
+	NeoWif        string
+	NeoEpoch      uint32
+	NeoWalletFile string
+	NeoSysFee     float64
+	NeoNetFee     float64
 
 	// neo3 chain
 	Neo3Url            string
