@@ -29,7 +29,7 @@ require (
 	github.com/polynetwork/btc-vendor-tools v0.0.0-20200813091748-3b19a5fd7666
 	github.com/polynetwork/cosmos-poly-module v0.0.0-20200810030259-95d586518759
 	github.com/polynetwork/eth-contracts v0.0.0-20200903021827-c9212e419943
-	github.com/polynetwork/poly v0.0.0-20201216061550-50185057319d
+	github.com/polynetwork/poly v0.0.0-20210112063446-24e3d053e9d6
 	github.com/polynetwork/poly-go-sdk v0.0.0-20200817120957-365691ad3493
 	github.com/prometheus/tsdb v0.9.1 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
@@ -39,6 +39,7 @@ require (
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/tendermint/tendermint v0.33.9
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )
