@@ -9,12 +9,12 @@ require (
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/cosmos/cosmos-sdk v0.39.2
-	github.com/ethereum/go-ethereum v1.9.18
+	github.com/ethereum/go-ethereum v1.10.4
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/golang/mock v1.5.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/joeqian10/neo-gogogo v1.1.0
-	github.com/joeqian10/neo3-gogogo v0.3.2
+	github.com/joeqian10/neo3-gogogo v0.3.6
 	github.com/kardiachain/go-kardia v1.1.1-0.20210518091640-d13a5b7f7c4c
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
@@ -27,7 +27,6 @@ require (
 	github.com/polynetwork/kai-relayer v0.0.0
 	github.com/polynetwork/poly v0.0.0-20210112063446-24e3d053e9d6
 	github.com/polynetwork/poly-go-sdk v0.0.0-20200817120957-365691ad3493
-	github.com/shirou/gopsutil v2.20.9+incompatible // indirect
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/stretchr/testify v1.7.0
@@ -45,4 +44,4 @@ replace github.com/polynetwork/poly-go-sdk => github.com/joeqian10/poly-go-sdk v
 
 //replace github.com/ontio/ontology => github.com/ontio/ontology v1.11.0
 
-replace github.com/polynetwork/kai-relayer => github.com/dogecoindev/kai-relayer v0.0.0-20210608044355-c91f4a1c9c7c
+replace github.com/polynetwork/kai-relayer => github.com/dogecoindev/kai-relayer v0.0.0-20210609112229-34bf794e78e7
