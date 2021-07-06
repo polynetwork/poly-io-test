@@ -278,7 +278,10 @@ func main() {
 		case config.DefConfig.NeoChainID:
 			SyncNeoGenesisHeader(poly, accArr)
 		case config.DefConfig.Neo3ChainID:
-			SyncNeo3GenesisHeader(poly, accArr)
+			err = SyncNeo3GenesisHeader(poly, accArr)
+			if err != nil {
+				panic(err)
+			}
 		case config.DefConfig.CMCrossChainId:
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
