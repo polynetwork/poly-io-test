@@ -14,7 +14,7 @@ require (
 	github.com/golang/mock v1.5.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/joeqian10/neo-gogogo v1.1.0
-	github.com/joeqian10/neo3-gogogo v0.3.6
+	github.com/joeqian10/neo3-gogogo v0.3.7
 	github.com/kardiachain/go-kardia v1.1.1-0.20210518091640-d13a5b7f7c4c
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
