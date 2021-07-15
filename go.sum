@@ -554,6 +554,8 @@ github.com/joeqian10/neo-gogogo v1.1.0 h1:TjqBwFQnNCtw6LK3QMog3yHa9sTZaZmqP+zqGO
 github.com/joeqian10/neo-gogogo v1.1.0/go.mod h1:1fVDp4U1ROZQBRIooecbGNHHJpfs3bG9528sqlZ096g=
 github.com/joeqian10/neo3-gogogo v0.3.6 h1:18S0HazEcFBv23oUTx8jHkZUpHe7KkoTexjJR6W6p9Q=
 github.com/joeqian10/neo3-gogogo v0.3.6/go.mod h1:k0wb1hcBjjspDpyHtEXIpDUEXAw5SfX7coi5AkNtxoU=
+github.com/joeqian10/neo3-gogogo v0.3.7 h1:avz/2WdQGQZ16d08I4S0gRWbK+ZLuDhE06YfO5DLWDo=
+github.com/joeqian10/neo3-gogogo v0.3.7/go.mod h1:k0wb1hcBjjspDpyHtEXIpDUEXAw5SfX7coi5AkNtxoU=
 github.com/joeqian10/neo3-gogogo-legacy v1.0.0 h1:UeYhbn2q75WpuXlj6WrEzsygcWRws06LE2QB3/u/DCE=
 github.com/joeqian10/neo3-gogogo-legacy v1.0.0/go.mod h1:PsVfMQ3kQVb4v3vCi0kbVLqB+KBU3DYF+AuIFH0M2UU=
 github.com/joeqian10/poly v0.0.0-20210705062853-598a3eea06b7 h1:xTTGIeClL0p6HnVX2YzGNpa3xnRO5Y8xmmH8GTeU8jI=

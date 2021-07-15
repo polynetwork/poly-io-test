@@ -41,18 +41,20 @@ const (
 
 //Config object used by ontology-instance
 type TestConfig struct {
-	BtcChainID  uint64
-	EthChainID  uint64
-	OntChainID  uint64
-	NeoChainID  uint64
-	Neo3ChainID uint64
-	BscChainID  uint64
-	ZilChainID  uint64
-	HecoChainID uint64
-	O3ChainID   uint64
-	MscChainID  uint64
-	OkChainID   uint64
-	KaiChainID  uint64
+	BtcChainID             uint64
+	EthChainID             uint64
+	OntChainID             uint64
+	NeoChainID             uint64
+	Neo3ChainID            uint64
+	BscChainID             uint64
+	ZilChainID             uint64
+	HecoChainID            uint64
+	O3ChainID              uint64
+	MscChainID             uint64
+	OkChainID              uint64
+	KaiChainID             uint64
+	PolygonHeimdallChainID uint64
+	PolygonBorChainID      uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -91,6 +93,9 @@ type TestConfig struct {
 	// o3 urls
 	O3URL        string
 	O3PrivateKey string
+	// bor urls
+	BorURL        string
+	BorPrivateKey string
 
 	// zil urls
 	ZilURL        string
@@ -239,6 +244,12 @@ type TestConfig struct {
 	O3USDC      string
 	O3Neo       string
 	O3RenBTC    string
+
+	// bor contracts
+	BorEccd      string
+	BorEccm      string
+	BorEccmp     string
+	BorLockProxy string
 
 	// zil contracts
 	ZilEccdProxy string

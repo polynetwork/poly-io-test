@@ -211,6 +211,14 @@ func main() {
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
 			}
+		case config.DefConfig.PolygonHeimdallChainID:
+			if registerPolygonHeimdall(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonHeimdallChainID, poly, accArr)
+			}
+		case config.DefConfig.PolygonBorChainID:
+			if registerPolygonBor(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonBorChainID, poly, accArr)
+			}
 		case config.DefConfig.KaiChainID:
 			if RegisterKai(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
@@ -255,6 +263,12 @@ func main() {
 			if RegisterKai(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
 			}
+			if registerPolygonHeimdall(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonHeimdallChainID, poly, accArr)
+			}
+			if registerPolygonBor(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonBorChainID, poly, accArr)
+			}
 		}
 	case "sync_genesis_header":
 		wArr := strings.Split(pWalletFiles, ",")
@@ -298,6 +312,10 @@ func main() {
 			SyncOKGenesisHeader(poly, accArr)
 		case config.DefConfig.KaiChainID:
 			SyncKaiGenesisHeader(poly, accArr)
+		case config.DefConfig.PolygonHeimdallChainID:
+			SyncPolygonHeimdallGenesisHeader(poly, accArr)
+		case config.DefConfig.PolygonBorChainID:
+			SyncPolygonBorGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -311,6 +329,7 @@ func main() {
 			SyncMSCGenesisHeader(poly, accArr)
 			SyncOKGenesisHeader(poly, accArr)
 			SyncKaiGenesisHeader(poly, accArr)
+			SyncPolygonHeimdallGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
@@ -1300,6 +1319,80 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	return nil
 }
 
+func SyncPolygonBorGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	headerBytes, _ := hex.DecodeString("")
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.PolygonBorChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heimdall already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync bor genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+	tool := eth.NewEthTools(config.DefConfig.BorURL)
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.BorEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.BorPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncPolygonBorGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuth(signer, nonce, gasPrice.Uint64(), uint64(8000000))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to bor: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncPolygonHeimdallGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	headerBytes, _ := hex.DecodeString("")
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.PolygonHeimdallChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heimdall already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync heimdall genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+}
+
 func SyncKaiGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
 	client, err := kaiclient.Dial(config.DefConfig.KaiUrl)
 	if err != nil {
@@ -1798,6 +1891,75 @@ func registerMSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register msc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+type PolygonExtraInfo struct {
+	Sprint              uint64
+	Period              uint64
+	ProducerDelay       uint64
+	BackupMultiplier    uint64
+	HeimdallPolyChainID uint64
+}
+
+func registerPolygonBor(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(128)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BorEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerPolygonBor, failed to decode eccd '%s' : %v", config.DefConfig.BorEccd, err))
+	}
+
+	heimdallPolyChainID := uint64(2)
+
+	extra := PolygonExtraInfo{
+		Sprint:              64,
+		Period:              2,
+		ProducerDelay:       6,
+		BackupMultiplier:    2,
+		HeimdallPolyChainID: heimdallPolyChainID,
+	}
+	extraBytes, _ := json.Marshal(extra)
+
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.PolygonBorChainID, 16, "bor",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("chain %d already registered", config.DefConfig.OkChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("chain %d already requested", config.DefConfig.OkChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerPolygonBor failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register bor chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func registerPolygonHeimdall(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.PolygonHeimdallChainID, 15, "heimdall",
+		blkToWait, nil, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("heimdall chain %d already registered", config.DefConfig.PolygonHeimdallChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("heimdall chain %d already requested", config.DefConfig.PolygonHeimdallChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerOK failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register heimdall chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
