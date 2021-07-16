@@ -85,6 +85,8 @@ func (ethInvoker *EInvoker) url() string {
 		return ethInvoker.TConfiguration.OKURL
 	case ethInvoker.TConfiguration.KaiChainID:
 		return ethInvoker.TConfiguration.KaiUrl
+	case ethInvoker.TConfiguration.PolygonBorChainID:
+		return ethInvoker.TConfiguration.BorURL
 	default:
 		panic(fmt.Sprintf("url:unknown chain id:%d", ethInvoker.ChainID))
 	}
@@ -108,6 +110,8 @@ func (ethInvoker *EInvoker) privateKey() string {
 		return ethInvoker.TConfiguration.OKPrivateKey
 	case ethInvoker.TConfiguration.KaiChainID:
 		return ethInvoker.TConfiguration.KaiPrivateKey
+	case ethInvoker.TConfiguration.PolygonBorChainID:
+		return ethInvoker.TConfiguration.BorPrivateKey
 	default:
 		panic(fmt.Sprintf("privateKey:unknown chain id:%d", ethInvoker.ChainID))
 	}
@@ -243,6 +247,8 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 	} else if uint64(toChainId) == config.DefConfig.O3ChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.KaiChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.PolygonBorChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.NeoChainID {
 		other, err := helper.UInt160FromString(toAssetHash)

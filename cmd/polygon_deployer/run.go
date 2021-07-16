@@ -110,6 +110,18 @@ func DeployETHSmartContract() {
 	}
 }
 
-func SetUpEthContracts() {
+func SetupMatic(ethInvoker *eth.EInvoker) {
+	ethNativeAddr := "0x0000000000000000000000000000000000000000"
 
+	tx, err := ethInvoker.BindAssetHash(config.DefConfig.BorLockProxy, ethNativeAddr, ethNativeAddr, config.DefConfig.PolygonBorChainID, 0)
+	if err != nil {
+		panic(fmt.Errorf("BindAssetHash, failed to bind asset hash: %v", err))
+	}
+	hash := tx.Hash()
+	fmt.Printf("binding matic of polygon on bor: ( txhash: %s )\n", hash.String())
+}
+
+func SetUpEthContracts() {
+	invoker := eth.NewEInvoker(config.DefConfig.PolygonBorChainID)
+	SetupMatic(invoker)
 }
