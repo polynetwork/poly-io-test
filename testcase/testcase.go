@@ -1298,6 +1298,25 @@ func MscMxToMsc(ctx *testframework.TestFrameworkContext, status *testframework.C
 	return true
 }
 
+func MaticToBor(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
+	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
+		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
+		for j := uint64(0); j < config.DefConfig.TxNumPerBatch; j++ {
+			if err := SendMaticCrossBor(ctx, status, amt); err != nil {
+				log.Errorf("MaticToBor, SendBnbCrossBsc error: %v", err)
+				return false
+			}
+		}
+		log.Infof("MaticToBor, send %d matic to Bor, waiting for confirmation...", amt)
+		WaitUntilClean(status)
+
+		log.Infof("MaticToBor, matic all received ( batch: %d )", i)
+	}
+
+	status.SetItSuccess(1)
+	return true
+}
+
 func BnbToBsc(ctx *testframework.TestFrameworkContext, status *testframework.CaseStatus) bool {
 	for i := uint64(0); i < config.DefConfig.BatchTxNum; i++ {
 		amt := GetRandAmount(config.DefConfig.EthValLimit, 1)
