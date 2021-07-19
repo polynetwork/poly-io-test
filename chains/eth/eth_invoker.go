@@ -132,7 +132,16 @@ func (ethInvoker *EInvoker) MakeSmartContractAuth() (*bind.TransactOpts, error) 
 	if err != nil {
 		return nil, fmt.Errorf("MakeSmartContractAuth, %v", err)
 	}
-	auth := bind.NewKeyedTransactor(ethInvoker.PrivateKey)
+	var auth *bind.TransactOpts
+	if ethInvoker.ChainID == ethInvoker.TConfiguration.PolygonBorChainID {
+		auth, err = NewKeyedTransactorWithChainID(ethInvoker.PrivateKey, big.NewInt(int64(ethInvoker.TConfiguration.PolygonBorSignerChainID)))
+		if err != nil {
+			return nil, fmt.Errorf("NewKeyedTransactorWithChainID fail, %v", err)
+		}
+	} else {
+		auth = bind.NewKeyedTransactor(ethInvoker.PrivateKey)
+	}
+
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(int64(0))       // in wei
 	auth.GasLimit = uint64(DefaultGasLimit) // in units
