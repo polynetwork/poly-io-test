@@ -358,6 +358,11 @@ func main() {
 
 	case "update_ok":
 		UpdateOK(poly, acc)
+	case "update_bor":
+		accArr := getPolyAccounts(poly)
+		if UpdatePolygonBor(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.PolygonBorChainID, poly, accArr)
+		}
 
 	case "init_ont_acc":
 		err := InitOntAcc()
@@ -1905,6 +1910,31 @@ type PolygonExtraInfo struct {
 	ProducerDelay       uint64
 	BackupMultiplier    uint64
 	HeimdallPolyChainID uint64
+}
+
+func UpdatePolygonBor(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(128)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BorEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerPolygonBor, failed to decode eccd '%s' : %v", config.DefConfig.BorEccd, err))
+	}
+
+	heimdallPolyChainID := uint64(config.DefConfig.PolygonHeimdallChainID)
+
+	extra := PolygonExtraInfo{
+		Sprint:              64,
+		Period:              2,
+		ProducerDelay:       6,
+		BackupMultiplier:    2,
+		HeimdallPolyChainID: heimdallPolyChainID,
+	}
+	extraBytes, _ := json.Marshal(extra)
+
+	if err := updateSideChainExt(poly, acc, config.DefConfig.PolygonBorChainID, 16, blkToWait, "bor", eccd, extraBytes); err != nil {
+		log.Errorf("failed to update bor: %v", err)
+		return false
+	}
+	return true
 }
 
 func registerPolygonBor(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
