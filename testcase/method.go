@@ -2433,7 +2433,7 @@ func SendMaticCrossBor(ctx *testframework.TestFrameworkContext, status *testfram
 		return fmt.Errorf("SendMaticCrossBor, contractabi.Pack error:" + err.Error())
 	}
 
-	contractAddr := ethcommon.HexToAddress(config.DefConfig.BscLockProxy)
+	contractAddr := ethcommon.HexToAddress(config.DefConfig.BorLockProxy)
 	callMsg := ethereum.CallMsg{
 		From: ctx.BorInvoker.EthTestSigner.Address, To: &contractAddr, Gas: 0, GasPrice: gasPrice,
 		Value: big.NewInt(int64(amount)), Data: txData,
@@ -2453,7 +2453,7 @@ func SendMaticCrossBor(ctx *testframework.TestFrameworkContext, status *testfram
 	if err != nil {
 		return fmt.Errorf("SendMaticCrossBor, eth.DeserializeTx error: %s", err.Error())
 	}
-	signedtx, err := types.SignTx(unsignedTx, eth.NewEIP155Signer(big.NewInt(int64(config.DefConfig.PolygonBorSignerChainID))), ctx.BscInvoker.EthTestSigner.PrivateKey)
+	signedtx, err := types.SignTx(unsignedTx, eth.NewEIP155Signer(big.NewInt(int64(config.DefConfig.PolygonBorSignerChainID))), ctx.BorInvoker.EthTestSigner.PrivateKey)
 	if err != nil {
 		return fmt.Errorf("SendMaticCrossBor, types.SignTx error: %s", err.Error())
 	}

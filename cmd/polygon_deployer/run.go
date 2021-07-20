@@ -119,6 +119,24 @@ func SetupMatic(ethInvoker *eth.EInvoker) {
 	}
 	hash := tx.Hash()
 	fmt.Printf("binding matic of polygon on bor: ( txhash: %s )\n", hash.String())
+
+	if config.DefConfig.BorLockProxy != "" {
+		_, contract, err := ethInvoker.MakeLockProxy(config.DefConfig.BorLockProxy)
+		if err != nil {
+			panic(fmt.Errorf("failed to MakeLockProxy: %v", err))
+		}
+		auth, err := ethInvoker.MakeSmartContractAuth()
+		if err != nil {
+			panic(fmt.Errorf("failed to get auth: %v", err))
+		}
+		other := common2.HexToAddress(config.DefConfig.BscLockProxy)
+		tx, err := contract.BindProxyHash(auth, config.DefConfig.PolygonBorChainID, other[:])
+		if err != nil {
+			panic(fmt.Errorf("failed to bind proxy: %v", err))
+		}
+		hash := tx.Hash()
+		fmt.Printf("binding bor proxy: ( txhash: %s )\n", hash.String())
+	}
 }
 
 func SetUpEthContracts() {

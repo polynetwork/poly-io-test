@@ -1914,7 +1914,7 @@ type PolygonExtraInfo struct {
 }
 
 func UpdatePolygonBor(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
-	blkToWait := uint64(128)
+	blkToWait := uint64(1)
 	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BorEccd, "0x", "", 1))
 	if err != nil {
 		panic(fmt.Errorf("registerPolygonBor, failed to decode eccd '%s' : %v", config.DefConfig.BorEccd, err))
