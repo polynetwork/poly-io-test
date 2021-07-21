@@ -53,7 +53,7 @@ type EInvoker struct {
 }
 
 var (
-	DefaultGasLimit = 5000000
+	DefaultGasLimit = 500000
 )
 
 func NewEInvoker(chainID uint64) *EInvoker {

@@ -129,7 +129,7 @@ func SetupMatic(ethInvoker *eth.EInvoker) {
 		if err != nil {
 			panic(fmt.Errorf("failed to get auth: %v", err))
 		}
-		other := common2.HexToAddress(config.DefConfig.BscLockProxy)
+		other := common2.HexToAddress(config.DefConfig.BorLockProxy)
 		tx, err := contract.BindProxyHash(auth, config.DefConfig.PolygonBorChainID, other[:])
 		if err != nil {
 			panic(fmt.Errorf("failed to bind proxy: %v", err))
