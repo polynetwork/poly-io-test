@@ -24,9 +24,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/polynetwork/poly/core/states"
 	"github.com/polynetwork/poly/native/service/governance/neo3_state_manager"
-	"io/ioutil"
 
 	"math/big"
 	"os"
@@ -64,6 +65,7 @@ import (
 	"github.com/polynetwork/eth-contracts/go_abi/eccm_abi"
 	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 
+	"github.com/polynetwork/kai-relayer/kaiclient"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
@@ -209,6 +211,18 @@ func main() {
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
 			}
+		case config.DefConfig.PolygonHeimdallChainID:
+			if registerPolygonHeimdall(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonHeimdallChainID, poly, accArr)
+			}
+		case config.DefConfig.PolygonBorChainID:
+			if registerPolygonBor(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonBorChainID, poly, accArr)
+			}
+		case config.DefConfig.KaiChainID:
+			if RegisterKai(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
+			}
 		case 0:
 			if RegisterBtcChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.BtcChainID, poly, accArr)
@@ -246,6 +260,15 @@ func main() {
 			if registerOK(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.OkChainID, poly, accArr)
 			}
+			if RegisterKai(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.KaiChainID, poly, accArr)
+			}
+			if registerPolygonHeimdall(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonHeimdallChainID, poly, accArr)
+			}
+			if registerPolygonBor(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.PolygonBorChainID, poly, accArr)
+			}
 		}
 	case "sync_genesis_header":
 		wArr := strings.Split(pWalletFiles, ",")
@@ -269,7 +292,10 @@ func main() {
 		case config.DefConfig.NeoChainID:
 			SyncNeoGenesisHeader(poly, accArr)
 		case config.DefConfig.Neo3ChainID:
-			SyncNeo3GenesisHeader(poly, accArr)
+			err = SyncNeo3GenesisHeader(poly, accArr)
+			if err != nil {
+				panic(err)
+			}
 		case config.DefConfig.CMCrossChainId:
 			SyncCosmosGenesisHeader(poly, accArr)
 		case config.DefConfig.BscChainID:
@@ -284,6 +310,12 @@ func main() {
 			SyncMSCGenesisHeader(poly, accArr)
 		case config.DefConfig.OkChainID:
 			SyncOKGenesisHeader(poly, accArr)
+		case config.DefConfig.KaiChainID:
+			SyncKaiGenesisHeader(poly, accArr)
+		case config.DefConfig.PolygonHeimdallChainID:
+			SyncPolygonHeimdallGenesisHeader(poly, accArr)
+		case config.DefConfig.PolygonBorChainID:
+			SyncPolygonBorGenesisHeader(poly, accArr)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -296,6 +328,8 @@ func main() {
 			SyncHecoGenesisHeader(poly, accArr)
 			SyncMSCGenesisHeader(poly, accArr)
 			SyncOKGenesisHeader(poly, accArr)
+			SyncKaiGenesisHeader(poly, accArr)
+			SyncPolygonHeimdallGenesisHeader(poly, accArr)
 		}
 
 	case "update_btc":
@@ -320,6 +354,14 @@ func main() {
 		accArr := getPolyAccounts(poly)
 		if UpdateNeo3(poly, acc) {
 			ApproveUpdateChain(config.DefConfig.Neo3ChainID, poly, accArr)
+		}
+
+	case "update_ok":
+		UpdateOK(poly, acc)
+	case "update_bor":
+		accArr := getPolyAccounts(poly)
+		if UpdatePolygonBor(poly, acc) {
+			ApproveUpdateChain(config.DefConfig.PolygonBorChainID, poly, accArr)
 		}
 
 	case "init_ont_acc":
@@ -933,6 +975,10 @@ func SyncOKGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accoun
 	}
 
 	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	if err != nil {
+		log.Infof("fail to sync poly genesis header to OK: %v signer:%s", err, signer.Address.Hex())
+		return
+	}
 	log.Infof("successful to sync poly genesis header to OK: ( txhash: %s )", tx.Hash().String())
 }
 
@@ -1278,6 +1324,114 @@ func SyncNeoGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Accou
 	return nil
 }
 
+func SyncPolygonBorGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	// 16580822
+	headerBytes, _ := hex.DecodeString("7b22486561646572223a7b22706172656e7448617368223a22307835326566663131646465653331333663313965356236323136306264386538336237383034616331316263366461646138643565643062393437653737326436222c2273686133556e636c6573223a22307831646363346465386465633735643761616238356235363762366363643431616433313234353162393438613734313366306131343266643430643439333437222c226d696e6572223a22307830303030303030303030303030303030303030303030303030303030303030303030303030303030222c227374617465526f6f74223a22307866363932336361643530623836633933633861383866333535653930343461313639326631366365393830636536386238363434373730386331663865353937222c227472616e73616374696f6e73526f6f74223a22307838313133356337336633663162653734366239656334646262356462643536343935613866366130623730376164633235366161653466343133326236376633222c227265636569707473526f6f74223a22307863613933303337323435653966663136316537623839626136303338616164333033383338383262653636343034613939383332386239316134313035336564222c226c6f6773426c6f6f6d223a2230783030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303032303030303030303030303038303030303030303030303030303030303030303030303030303030313030303030303030303030303038303030303032303030303030303030303030303030303030303030303030303030303030303030303030303030303030303038303030303030383030303030303030303030303030303430303430313030343030303030303030303034303830303030303230303030303030303030303030303030303030383030303030303030303030303030303030303830303030303130303030303030303030303030303030303030303030303030303030303030303830303230303030303030303030303030303030303030303030303830303030303030303030303030323030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303430303030303030303034303030303030303032303030303030303030303231303030303030303030303030303030303030303030303030383030303030313038303030303030303230303030303030303030303030303031303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030313030303030222c22646966666963756c7479223a22307839222c226e756d626572223a223078666430306436222c226761734c696d6974223a22307831333132643030222c2267617355736564223a22307865636438222c2274696d657374616d70223a2230783630663639386130222c22657874726144617461223a2230786437383330313061303338333632366637323838363736663331326533313335326533353835366336393665373537383030303030303030303030303030303034626637313566666331623363633839663430306534643038633830353766336330613739656639313039313936646633653361646232333664346435366236303562363934323436393235613836303437326339383964343062313837616338393131366262356462323935663931376163383264626632613939336134323030222c226d697848617368223a22307830303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030222c226e6f6e6365223a22307830303030303030303030303030303030222c2268617368223a22307861356536333734393964353732333437633332636537386131313263323263626436396232623234653037613839623763323163333632393362653636336139227d2c22536e617073686f74223a7b2268617368223a22307861356536333734393964353732333437633332636537386131313263323263626436396232623234653037613839623763323163333632393362653636336139222c2276616c696461746f72536574223a7b2276616c696461746f7273223a5b7b224944223a302c227369676e6572223a22307839326461396638663365653136613237363839366663376232353530623231353161616530333332222c22706f776572223a33373839352c22616363756d223a2d313034363335327d2c7b224944223a302c227369676e6572223a22307862323663323232333738313664383938636239393932643736373434343130356266646330336236222c22706f776572223a343335332c22616363756d223a3130353137327d2c7b224944223a302c227369676e6572223a22307862653138386436363431653862363830373433613438313564666130663632303830333839363066222c22706f776572223a3330343334332c22616363756d223a3337313736397d2c7b224944223a302c227369676e6572223a22307863323638383061306166326561306337653831333065366563343761663735363436353435326538222c22706f776572223a313034313731322c22616363756d223a313537323637347d2c7b224944223a302c227369676e6572223a22307863323735646338626533396635306431326636366236613633363239633339646135626165356264222c22706f776572223a313032343633332c22616363756d223a2d3533303631327d2c7b224944223a302c227369676e6572223a22307863343433323739613636323830666139626232393136393939633563326432666163616230353739222c22706f776572223a373030302c22616363756d223a3137373634347d2c7b224944223a302c227369676e6572223a22307863346163663866626532383239636230633230396466663135613938623364633133663132623166222c22706f776572223a3136302c22616363756d223a3534373130317d2c7b224944223a302c227369676e6572223a22307865346238653932323237303434303161643136643464383236373332393533646166303763376532222c22706f776572223a3338323332332c22616363756d223a2d3235383938367d2c7b224944223a302c227369676e6572223a22307866393033626139653030363139336331353237626662653635666532313233373034656133663939222c22706f776572223a31323235382c22616363756d223a2d3933383430397d5d2c2270726f706f736572223a7b224944223a302c227369676e6572223a22307863323735646338626533396635306431326636366236613633363239633339646135626165356264222c22706f776572223a313032343633332c22616363756d223a2d3533303631327d7d7d7d")
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.PolygonBorChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heimdall already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync bor genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+	tool := eth.NewEthTools(config.DefConfig.BorURL)
+	eccmContract, err := eccm_abi.NewEthCrossChainManager(common3.HexToAddress(config.DefConfig.BorEccm), tool.GetEthClient())
+	if err != nil {
+		panic(err)
+	}
+	signer, err := eth.NewEthSigner(config.DefConfig.BorPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	nonce := eth.NewNonceManager(tool.GetEthClient()).GetAddressNonce(signer.Address)
+	gasPrice, err := tool.GetEthClient().SuggestGasPrice(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("SyncPolygonBorGenesisHeader, get suggest gas price failed error: %s", err.Error()))
+	}
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(5))
+	auth := testcase.MakeEthAuthWithChainID(signer, nonce, gasPrice.Uint64(), uint64(800000), big.NewInt(int64(config.DefConfig.PolygonBorSignerChainID)))
+
+	gB, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gB.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	tx, err := eccmContract.InitGenesisBlock(auth, gB.Header.ToArray(), publickeys)
+	if err != nil {
+		panic(fmt.Sprintf("InitGenesisBlock failed:%v", err))
+	}
+
+	tool.WaitTransactionConfirm(tx.Hash())
+	log.Infof("successful to sync poly genesis header to bor: ( txhash: %s )", tx.Hash().String())
+}
+
+func SyncPolygonHeimdallGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	// 6486367
+	headerBytes, _ := hex.DecodeString("0ab6020a02080a120e6865696d64616c6c2d383030303118dff28b03220c08b6b0da87061096e59bef0130a8960c3a480a20c04ce93cf6c584641277f485f089080c037e46a489a7f092158796295b7130d61224080112204079f136ca1788f28399eb5a6254e948e4d6cc86247b56aeaa85720f503c4fa8422049306e7431af6c35ef6cbceb52aeec4b3f2da4dcc99c10eb9af0409ec915ada852203112b401fa4d8ce61f663e18cda85fa4272925a3a88f58cd078fb250e7a4dfc75a203112b401fa4d8ce61f663e18cda85fa4272925a3a88f58cd078fb250e7a4dfc7622081ba6261d0077795e489737675de120cc9170adccaad805e12ef2708a2e214536a200a3766e5060b8838ffc5e011f0bf2ef57f4ae3ffee5f6b774ddce00a01cd8b66820114c26880a0af2ea0c7e8130e6ec47af756465452e812ed0a0a480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc12b701080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0b08bcb0da870610b1a4cd61321492da9f8f3ee16a276896fc7b2550b2151aae0332424140175c53adeca352f4345eedcc6160dd343c7463c8e873420d8c58e0a5988e910aeed1e95331cf822ff52cc213b170079dfa90af8e5b764e1f3d61e84115d56f0012b801080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0a08bcb0da870610cc8b093214b26c22237816d898cb9992d767444105bfdc03b638014241ec428a9c5b88b0beaabfa5f53c2cc5e5b833c57c1b8436c49c19d49450d49ebb7ba84150ff5015bbab041f12fb68652d66e25d7dfd6021673047c728b44eb2530012b801080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0a08bcb0da870610df88723214be188d6641e8b680743a4815dfa0f6208038960f38024241d89aa99675cd283bf8b6038e7c535e69dc0fccc602bb1f02fcd602ec91ccbda730868738cd1847d78ef90cbbd53d004d37ec6192c837794ebf3e15124c0c25240012ba01080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0c08bbb0da870610b39bf6ca033214c26880a0af2ea0c7e8130e6ec47af756465452e838034241fe4413b65c7ebdabb97c940f08ba80d3b43f1e45c77dcdab6c50cc78aa74f74b52291fcf5661c23971c36fc6f139d35c75bb85d7568a85399ed897fa02d48ed30112b801080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0a08bcb0da870610f69c483214c275dc8be39f50d12f66b6a63629c39da5bae5bd3804424119159c469d16ecc96d38749e5df51b35a6132664dc9e0cf6531d4384a4d7332217314dc066db451bbff81802f9341166833c0668782be0644b450a8ec6a7482b001200120012b901080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0b08bcb0da870610a9d2de7d3214e4b8e9222704401ad16d4d826732953daf07c7e238074241cfdeddf85673d58b1a8548d39f35b36727ee4f7b41126f26b571467054fa83416a0aa3791579c8eae39f6fef84a9cf1997d770ab19df5f5210672cc60b8d827c0012b801080210dff28b0322480a20975b202f7cf1c73e5479fb3e97b1ca7861619c5239c1721bb4e43bddaa28bfe9122408011220249c1b7f33710611c1ed3429c32c5172808eebd5b1ee111b866df6155f4ca1bc2a0a08bcb0da87061095ce4e3214f903ba9e006193c1527bfbe65fe2123704ea3f9938084241c5db3f914b8006c5e18848ccb5bcc7febef2600c8ac38ff5704f6acddec73b1d2509a0524b10bedaa259698f83a21ae6805f72b5c443f7ee57a0a55ea542c5b4001a660a1492da9f8f3ee16a276896fc7b2550b2151aae03321246eb5ae98741041f2c0ff8f11c0584bad20b3d275a025f567deda7b8ec97600509398cceba1f3649fc8b424b4754032980770a4c495706d5191d051e6423d5b8e63cd7792aa3d51887a802209ebb441a6c0a14b26c22237816d898cb9992d767444105bfdc03b61246eb5ae98741047ae11341f861697b349afdae3c7328ced67fcfc82da84f8db22c78e229edcdcfd83a5bb7d69a56b352f95eadcb51b98be15d140f06c85c9cb414dfe317df4b7418812220ca8fd5ffffffffffff011a660a14be188d6641e8b680743a4815dfa0f6208038960f1246eb5ae9874104888a737a003f4e522ccf23bd9980fdbe7ef2b54365249deba0f9acd45279d66355b1864173b2cf9e75a1cbfb45e65a1a72b9ea76e47aa4bd50d79772ef30176918d7c91220eb8c151a6d0a14c26880a0af2ea0c7e8130e6ec47af756465452e81246eb5ae98741040bec8102c221c7cfff3e250bb6cc01c3b9a3964fb1bf4d53e91905320eef09595acb09ee0950e7374ec19488ff2523f186f6b1a9164c78dba8602e4e3c4eb01318b0ca3f20e1d2ceffffffffffff011a6d0a14c275dc8be39f50d12f66b6a63629c39da5bae5bd1246eb5ae9874104f3f18a027c929380417d2bd7d2a489cb662d4977e9daff335bc51f23c1c5f5f468aa19c6c8e937a745462ef2550bce42e4f38608dffb5a06e7b9d27d964cffee18f9c43e209b95eeffffffffffff011a650a14c443279a66280fa9bb2916999c5c2d2facab05791246eb5ae98741046e58afa78fade1229ce3bebe3ed5435d895cfdc399323d4f20752935ff04dc514e8f3320a8d5434a13acc9209b9657ebbdf154ae715830135997f6c2ae02825818d8362093f5391a6c0a14c4acf8fbe2829cb0c209dff15a98b3dc13f12b1f1246eb5ae9874104161cf579b40ea1a68f166da216c50e88f1323213cd22a8ffa6acabc45893a80250b5aafa6dea6e4a0289ebabe8b2996ae806098b7d88d2eee8634ec73fe2edfd18a00120cbb598ffffffffffff011a660a14e4b8e9222704401ad16d4d826732953daf07c7e21246eb5ae987410469bd14dadd683cb4a4d1e27b79d3594c2025716abaf3a8a8282b126ea5c3a686071033ef6aa4c9b7d12efb957a7a55faaa5684653895d25e88199e4c5281dffc18a6c31720adfa021a650a14f903ba9e006193c1527bfbe65fe2123704ea3f991246eb5ae9874104dcd2883416e7b8663caafbfc885e757b0ea809657df8d6f322f01a0c5a11fd033bf13d3e0d5e88feff92ba415d32d626e3f7d9dd7b5ec7c2fef8ded83d660ac218e25f20ab9b3f")
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.PolygonHeimdallChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("heimdall already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync heimdall genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+}
+
+func SyncKaiGenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) {
+	client, err := kaiclient.Dial(config.DefConfig.KaiUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	header, err := client.FullHeaderByNumber(context.Background(), big.NewInt(config.DefConfig.KaiEpoch))
+	if err != nil {
+		panic(err)
+	}
+
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
+		panic(err)
+	}
+	txhash, err := poly.Native.Hs.SyncGenesisHeader(config.DefConfig.KaiChainID, headerBytes, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("kai already synced")
+		} else {
+			panic(err)
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync kai genesis header: ( txhash: %s )", txhash.ToHexString())
+	}
+
+}
+
 func SyncNeo3GenesisHeader(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account) error {
 	cli := rpc3.NewClient(config.DefConfig.Neo3Url)
 	resp := cli.GetBlockHeader(strconv.Itoa(int(config.DefConfig.Neo3Epoch)))
@@ -1583,6 +1737,31 @@ func RegisterBtcChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool 
 	return true
 }
 
+func RegisterKai(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.KaiEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("RegisterKai, failed to decode eccd '%s' : %v", config.DefConfig.KaiEccd, err))
+	}
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.KaiChainID, 13, "kai",
+		blkToWait, eccd, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("eth chain %d already registered", config.DefConfig.KaiChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("eth chain %d already requested", config.DefConfig.KaiChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterKai failed: %v", err))
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register eth chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
 func RegisterEthChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 	blkToWait := uint64(1)
 	if config.BtcNet.Name == "testnet3" {
@@ -1642,8 +1821,8 @@ func RegisterNeo3Chain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool
 	if len(neo3Ccmc) != 4 {
 		panic(fmt.Errorf("incorrect Neo3CCMC length"))
 	}
-	txHash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.Neo3ChainID, 11, "NEO3",
-		blkToWait, neo3Ccmc[:], acc)
+	txHash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.Neo3ChainID, 14, "NEO3",
+		blkToWait, neo3Ccmc[:], helper3.UInt32ToBytes(config.DefConfig.Neo3Magic), acc)
 	if err != nil {
 		if strings.Contains(err.Error(), "already registered") {
 			log.Infof("neo3 chain %d already registered", config.DefConfig.Neo3ChainID)
@@ -1722,6 +1901,100 @@ func registerMSC(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register msc chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+type PolygonExtraInfo struct {
+	Sprint              uint64
+	Period              uint64
+	ProducerDelay       uint64
+	BackupMultiplier    uint64
+	HeimdallPolyChainID uint64
+}
+
+func UpdatePolygonBor(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BorEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerPolygonBor, failed to decode eccd '%s' : %v", config.DefConfig.BorEccd, err))
+	}
+
+	heimdallPolyChainID := uint64(config.DefConfig.PolygonHeimdallChainID)
+
+	extra := PolygonExtraInfo{
+		Sprint:              64,
+		Period:              2,
+		ProducerDelay:       6,
+		BackupMultiplier:    2,
+		HeimdallPolyChainID: heimdallPolyChainID,
+	}
+	extraBytes, _ := json.Marshal(extra)
+
+	if err := updateSideChainExt(poly, acc, config.DefConfig.PolygonBorChainID, 16, blkToWait, "bor", eccd, extraBytes); err != nil {
+		log.Errorf("failed to update bor: %v", err)
+		return false
+	}
+	return true
+}
+
+func registerPolygonBor(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(128)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.BorEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("registerPolygonBor, failed to decode eccd '%s' : %v", config.DefConfig.BorEccd, err))
+	}
+
+	heimdallPolyChainID := uint64(config.DefConfig.PolygonHeimdallChainID)
+
+	extra := PolygonExtraInfo{
+		Sprint:              64,
+		Period:              2,
+		ProducerDelay:       6,
+		BackupMultiplier:    2,
+		HeimdallPolyChainID: heimdallPolyChainID,
+	}
+	extraBytes, _ := json.Marshal(extra)
+
+	txhash, err := poly.Native.Scm.RegisterSideChainExt(acc.Address, config.DefConfig.PolygonBorChainID, 16, "bor",
+		blkToWait, eccd, extraBytes, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("chain %d already registered", config.DefConfig.OkChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("chain %d already requested", config.DefConfig.OkChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerPolygonBor failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register bor chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func registerPolygonHeimdall(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.PolygonHeimdallChainID, 15, "heimdall",
+		blkToWait, nil, acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("heimdall chain %d already registered", config.DefConfig.PolygonHeimdallChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("heimdall chain %d already requested", config.DefConfig.PolygonHeimdallChainID)
+			return true
+		}
+		panic(fmt.Errorf("registerOK failed: %v", err))
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to register heimdall chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
@@ -2010,8 +2283,22 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 		log.Errorf("incorrect Neo3CCMC length")
 		return false
 	}
-	if err := updateSideChain(poly, acc, config.DefConfig.Neo3ChainID, 11, blkToWait, "NEO3", neo3Ccmc[:]); err != nil {
+	if err := updateSideChainExt(poly, acc, config.DefConfig.Neo3ChainID, 14, blkToWait, "NEO3", neo3Ccmc[:], helper3.UInt32ToBytes(config.DefConfig.Neo3Magic)); err != nil {
 		log.Errorf("failed to update neo3: %v", err)
+		return false
+	}
+	return true
+}
+
+func UpdateOK(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	blkToWait := uint64(1)
+	eccd, err := hex.DecodeString(strings.Replace(config.DefConfig.OkEccd, "0x", "", 1))
+	if err != nil {
+		panic(fmt.Errorf("UpdateOK, failed to decode eccd '%s' : %v", config.DefConfig.OkEccd, err))
+	}
+
+	if err := updateSideChain(poly, acc, config.DefConfig.OkChainID, 12, blkToWait, "okex", eccd); err != nil {
+		log.Errorf("failed to update ok: %v", err)
 		return false
 	}
 	return true
@@ -2020,6 +2307,18 @@ func UpdateNeo3(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
 func updateSideChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
 	ccmc []byte) error {
 	txhash, err := poly.Native.Scm.UpdateSideChain(acc.Address, chainId, router, name, blkToWait, ccmc, acc)
+	if err != nil {
+		return err
+	}
+
+	testcase.WaitPolyTx(txhash, poly)
+	log.Infof("successful to update %s: ( txhash: %s )", name, txhash.ToHexString())
+	return nil
+}
+
+func updateSideChainExt(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account, chainId, router, blkToWait uint64, name string,
+	ccmc []byte, extra []byte) error {
+	txhash, err := poly.Native.Scm.UpdateSideChainExt(acc.Address, chainId, router, name, blkToWait, ccmc, extra, acc)
 	if err != nil {
 		return err
 	}
