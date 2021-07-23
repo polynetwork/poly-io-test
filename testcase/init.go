@@ -83,6 +83,7 @@ func init() {
 	testframework.TFramework.RegTestCase("OntdToEthAndBack", OntdToEthAndBack)
 	testframework.TFramework.RegTestCase("USDCCircle", USDCCircle)
 	testframework.TFramework.RegTestCase("BnbToBsc", BnbToBsc)
+	testframework.TFramework.RegTestCase("MaticToBor", MaticToBor)
 	testframework.TFramework.RegTestCase("MscMxToMsc", MscMxToMsc)
 	testframework.TFramework.RegTestCase("O3ToO3", O3ToO3)
 	testframework.TFramework.RegTestCase("EthToBsc", EthToBsc)
@@ -92,4 +93,7 @@ func init() {
 	testframework.TFramework.RegTestCase("BnbToEthOnce", BnbToEthOnce)
 	testframework.TFramework.RegTestCase("RenBTCCircle", RenBTCCircle)
 	testframework.TFramework.RegTestCase("EOntdToNeoAndBack", EOntdToNeoAndBack)
+
+	testframework.TFramework.RegTestCase("SendKaiToEthChain", SendKaiToEthChain)
+	testframework.TFramework.RegTestCase("SendEthToKaiChain", SendEthToKaiChain)
 }

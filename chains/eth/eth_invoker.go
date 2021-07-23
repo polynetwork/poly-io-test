@@ -83,8 +83,12 @@ func (ethInvoker *EInvoker) url() string {
 		return ethInvoker.TConfiguration.O3URL
 	case ethInvoker.TConfiguration.OkChainID:
 		return ethInvoker.TConfiguration.OKURL
+	case ethInvoker.TConfiguration.KaiChainID:
+		return ethInvoker.TConfiguration.KaiUrl
+	case ethInvoker.TConfiguration.PolygonBorChainID:
+		return ethInvoker.TConfiguration.BorURL
 	default:
-		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
+		panic(fmt.Sprintf("url:unknown chain id:%d", ethInvoker.ChainID))
 	}
 }
 
@@ -104,8 +108,12 @@ func (ethInvoker *EInvoker) privateKey() string {
 		return ethInvoker.TConfiguration.O3PrivateKey
 	case ethInvoker.TConfiguration.OkChainID:
 		return ethInvoker.TConfiguration.OKPrivateKey
+	case ethInvoker.TConfiguration.KaiChainID:
+		return ethInvoker.TConfiguration.KaiPrivateKey
+	case ethInvoker.TConfiguration.PolygonBorChainID:
+		return ethInvoker.TConfiguration.BorPrivateKey
 	default:
-		panic(fmt.Sprintf("unknown chain id:%d", ethInvoker.ChainID))
+		panic(fmt.Sprintf("privateKey:unknown chain id:%d", ethInvoker.ChainID))
 	}
 }
 
@@ -124,7 +132,16 @@ func (ethInvoker *EInvoker) MakeSmartContractAuth() (*bind.TransactOpts, error) 
 	if err != nil {
 		return nil, fmt.Errorf("MakeSmartContractAuth, %v", err)
 	}
-	auth := bind.NewKeyedTransactor(ethInvoker.PrivateKey)
+	var auth *bind.TransactOpts
+	if ethInvoker.ChainID == ethInvoker.TConfiguration.PolygonBorChainID {
+		auth, err = NewKeyedTransactorWithChainID(ethInvoker.PrivateKey, big.NewInt(int64(ethInvoker.TConfiguration.PolygonBorSignerChainID)))
+		if err != nil {
+			return nil, fmt.Errorf("NewKeyedTransactorWithChainID fail, %v", err)
+		}
+	} else {
+		auth = bind.NewKeyedTransactor(ethInvoker.PrivateKey)
+	}
+
 	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(int64(0))       // in wei
 	auth.GasLimit = uint64(DefaultGasLimit) // in units
@@ -237,6 +254,10 @@ func (ethInvoker *EInvoker) BindAssetHash(lockProxyAddr, fromAssetHash, toAssetH
 	} else if uint64(toChainId) == config.DefConfig.HecoChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.O3ChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.KaiChainID {
+		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
+	} else if uint64(toChainId) == config.DefConfig.PolygonBorChainID {
 		toAddr = ethComm.HexToAddress(toAssetHash).Bytes()
 	} else if uint64(toChainId) == config.DefConfig.NeoChainID {
 		other, err := helper.UInt160FromString(toAssetHash)

@@ -63,6 +63,8 @@ type TestFramework struct {
 	ontInvoker    *ont.OntInvoker
 	cosmosInvoker *cosmos.CosmosInvoker
 	neoInvoker    *neo.NeoInvoker
+	kaiInvoker    *eth.EInvoker
+	borInvoker    *eth.EInvoker
 }
 
 //NewTestFramework return a TestFramework instance
@@ -119,7 +121,7 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	defer this.onTestFinish(testCaseList)
 
 	ctx := NewTestFrameworkContext(this, testCaseList, this.rcSdk, this.ethInvoker, this.bscInvoker, this.mscInvoker, this.o3Invoker, this.btcInvoker,
-		this.ontInvoker, this.cosmosInvoker, this.neoInvoker)
+		this.ontInvoker, this.cosmosInvoker, this.neoInvoker, this.kaiInvoker, this.borInvoker)
 	if this.ontInvoker != nil {
 		go MonitorOnt(ctx)
 	}
@@ -136,6 +138,9 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	if this.mscInvoker != nil {
 		go MonitorEthLikeChain(ctx, config.DefConfig.MscChainID)
 	}
+	if this.borInvoker != nil {
+		go MonitorEthLikeChain(ctx, config.DefConfig.PolygonBorChainID)
+	}
 	if this.btcInvoker != nil {
 		go MonitorBtc(ctx)
 	}
@@ -145,6 +150,10 @@ func (this *TestFramework) runTestList(testCaseList []TestCase, loopNumber int) 
 	if this.neoInvoker != nil {
 		go MonitorNeo(ctx)
 	}
+	if this.kaiInvoker != nil {
+		go MonitorKai(ctx)
+	}
+
 	go ReportPending(ctx)
 
 	wg := &sync.WaitGroup{}
@@ -191,6 +200,15 @@ func (this *TestFramework) SetBSCInvoker(invoker *eth.EInvoker) {
 //SetO3Invoker instance to test framework
 func (this *TestFramework) SetO3Invoker(invoker *eth.EInvoker) {
 	this.o3Invoker = invoker
+}
+
+//SetO3Invoker instance to test framework
+func (this *TestFramework) SeKaiInvoker(invoker *eth.EInvoker) {
+	this.kaiInvoker = invoker
+}
+
+func (this *TestFramework) SeBorInvoker(invoker *eth.EInvoker) {
+	this.borInvoker = invoker
 }
 
 //SetMSCInvoker instance to test framework

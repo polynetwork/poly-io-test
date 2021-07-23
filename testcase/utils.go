@@ -21,23 +21,24 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"math/rand"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/polynetwork/poly-go-sdk"
+	poly_go_sdk "github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/chains/btc"
 	"github.com/polynetwork/poly-io-test/chains/eth"
 	"github.com/polynetwork/poly-io-test/config"
 	"github.com/polynetwork/poly-io-test/log"
 	"github.com/polynetwork/poly-io-test/testframework"
 	"github.com/polynetwork/poly/common"
-	"math/big"
-	"math/rand"
-	"strconv"
-	"strings"
-	"time"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -90,6 +91,19 @@ func WaitUntilClean(status *testframework.CaseStatus) {
 			break
 		}
 	}
+}
+
+func MakeEthAuthWithChainID(signer *eth.EthSigner, nonce, gasPrice, gasLimit uint64, chainID *big.Int) *bind.TransactOpts {
+	auth, err := eth.NewKeyedTransactorWithChainID(signer.PrivateKey, chainID)
+	if err != nil {
+		panic(err)
+	}
+	auth.Nonce = big.NewInt(int64(nonce))
+	auth.Value = big.NewInt(int64(0)) // in wei
+	auth.GasLimit = gasLimit          // in units
+	auth.GasPrice = big.NewInt(int64(gasPrice))
+
+	return auth
 }
 
 func MakeEthAuth(signer *eth.EthSigner, nonce, gasPrice, gasLimit uint64) *bind.TransactOpts {
