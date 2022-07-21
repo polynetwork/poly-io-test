@@ -44,6 +44,8 @@ import (
 	"github.com/polynetwork/eth-contracts/go_abi/eccmp_abi"
 	"github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly-io-test/chains/btc"
+	"github.com/polynetwork/poly-io-test/chains/chainsql"
+	eccm_abi3 "github.com/polynetwork/poly-io-test/chains/chainsql/eccm_abi"
 	cosmos2 "github.com/polynetwork/poly-io-test/chains/cosmos"
 	"github.com/polynetwork/poly-io-test/chains/eth"
 	"github.com/polynetwork/poly-io-test/chains/fabric"
@@ -168,6 +170,10 @@ func main() {
 			if RegisterFiscoChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.FiscoChainID, poly, accArr)
 			}
+		case config.DefConfig.ChainsqlChainID:
+			if RegisterChainsqlChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.ChainsqlChainID, poly, accArr)
+			}
 		case config.DefConfig.FabricChainID:
 			if RegisterFabricChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.FabricChainID, poly, accArr)
@@ -193,6 +199,9 @@ func main() {
 			}
 			if RegisterFabricChain(poly, acc) {
 				ApproveRegisterSideChain(config.DefConfig.FabricChainID, poly, accArr)
+			}
+			if RegisterChainsqlChain(poly, acc) {
+				ApproveRegisterSideChain(config.DefConfig.ChainsqlChainID, poly, accArr)
 			}
 		}
 
@@ -222,6 +231,8 @@ func main() {
 			SyncPolyGenesisHeaderToFisco(poly)
 		case config.DefConfig.FabricChainID:
 			SyncPolyGenesisHeaderToFabric(poly)
+		case  config.DefConfig.ChainsqlChainID:
+			SyncPolyGenesisHeaderToChainsql(poly)
 		case 0:
 			SyncBtcGenesisHeader(poly, acc)
 			SyncEthGenesisHeader(poly, accArr)
@@ -229,6 +240,7 @@ func main() {
 			SyncCosmosGenesisHeader(poly, accArr)
 			SyncNeoGenesisHeader(poly, accArr)
 			SyncPolyGenesisHeaderToFisco(poly)
+			SyncPolyGenesisHeaderToChainsql(poly)
 		}
 
 	case "update_btc":
@@ -368,6 +380,18 @@ func main() {
 			}
 		}
 		SyncFiscoRootCA(poly, accArr, rootca)
+	case "sync_chainsql_root_ca":
+		wArr := strings.Split(pWalletFiles, ",")
+		pArr := strings.Split(pPwds, ",")
+
+		accArr := make([]*poly_go_sdk.Account, len(wArr))
+		for i, v := range wArr {
+			accArr[i], err = btc.GetAccountByPassword(poly, v, []byte(pArr[i]))
+			if err != nil {
+				panic(fmt.Errorf("failed to decode no%d wallet %s with pwd %s", i, wArr[i], pArr[i]))
+			}
+		}
+		SyncChainsqlRootCA(poly, accArr, rootca)
 	case "sync_fabric_root_ca":
 		wArr := strings.Split(pWalletFiles, ",")
 		pArr := strings.Split(pPwds, ",")
@@ -728,6 +752,49 @@ func SyncPolyGenesisHeaderToFisco(poly *poly_go_sdk.PolySdk) {
 	log.Infof("successful to sync poly genesis header to Fisco: ( txhash: %s )", tx.Hash().String())
 }
 
+func SyncPolyGenesisHeaderToChainsql(poly *poly_go_sdk.PolySdk) {
+	gb, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
+	if err != nil {
+		panic(err)
+	}
+	info := &vconfig.VbftBlockInfo{}
+	if err := json.Unmarshal(gb.Header.ConsensusPayload, info); err != nil {
+		panic(fmt.Errorf("commitGenesisHeader - unmarshal blockInfo error: %s", err))
+	}
+
+	var bookkeepers []keypair.PublicKey
+	for _, peer := range info.NewChainConfig.Peers {
+		keystr, _ := hex.DecodeString(peer.ID)
+		key, _ := keypair.DeserializePublicKey(keystr)
+		bookkeepers = append(bookkeepers, key)
+	}
+	bookkeepers = keypair.SortPublicKeys(bookkeepers)
+
+	publickeys := make([]byte, 0)
+	for _, key := range bookkeepers {
+		publickeys = append(publickeys, ont.GetOntNoCompressKey(key)...)
+	}
+
+	rawHdr := gb.Header.ToArray()
+	invoker, err := chainsql.NewChainsqlInvoker()
+	if err != nil {
+		panic(err)
+	}
+	eccm, err := eccm_abi3.NewEthCrossChainManager(invoker.ChainsqlSdk,config.DefConfig.ChainsqlCCMC)
+	if err != nil {
+		panic(err)
+	}
+	tx, err := eccm.InitGenesisBlock(invoker.TransOpts,rawHdr, publickeys)
+	if err != nil {
+		panic(err)
+	}
+	if tx.ErrorCode != "" || tx.ErrorMessage != ""{
+		panic(tx.ErrorMessage)
+	}
+	log.Infof("successful to sync poly genesis header to chainsql: ( txhash: %s )", tx.TxHash)
+}
+
+
 func SyncPolyGenesisHeaderToFabric(poly *poly_go_sdk.PolySdk) {
 	gb, err := poly.GetBlockByHeight(config.DefConfig.RCEpoch)
 	if err != nil {
@@ -1022,6 +1089,26 @@ func RegisterFiscoChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) boo
 	}
 	testcase.WaitPolyTx(txhash, poly)
 	log.Infof("successful to register fisco chain: ( txhash: %s )", txhash.ToHexString())
+
+	return true
+}
+
+func RegisterChainsqlChain(poly *poly_go_sdk.PolySdk, acc *poly_go_sdk.Account) bool {
+	txhash, err := poly.Native.Scm.RegisterSideChain(acc.Address, config.DefConfig.ChainsqlChainID, 9, "chainsql",
+		1, common3.HexToAddress(config.DefConfig.ChainsqlCCMCHex).Bytes(), acc)
+	if err != nil {
+		if strings.Contains(err.Error(), "already registered") {
+			log.Infof("chainsql chain %d already registered", config.DefConfig.ChainsqlChainID)
+			return false
+		}
+		if strings.Contains(err.Error(), "already requested") {
+			log.Infof("chainsql chain %d already requested", config.DefConfig.ChainsqlChainID)
+			return true
+		}
+		panic(fmt.Errorf("RegisterChainsqlChain failed: %v", err))
+	}
+	testcase.WaitPolyTx(txhash, poly)
+	fmt.Printf("successful to register chainsql chain: ( txhash: %s )", txhash.ToHexString())
 
 	return true
 }
@@ -1511,6 +1598,26 @@ func SyncFiscoRootCA(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account, f
 	} else {
 		testcase.WaitPolyTx(txhash, poly)
 		log.Infof("successful to sync fisco root CA: (txhash: %s, \n CA: \n%s )", txhash.ToHexString(), string(raw))
+	}
+}
+
+func SyncChainsqlRootCA(poly *poly_go_sdk.PolySdk, accArr []*poly_go_sdk.Account, file string) {
+	raw, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
+	txhash, err := poly.Native.Hs.SyncRootCertificate(config.DefConfig.ChainsqlChainID, raw, accArr)
+	if err != nil {
+		if strings.Contains(err.Error(), "had been initialized") {
+			log.Info("chainsql ca already synced")
+		} else {
+			panic(fmt.Errorf("SyncChainsqlRootCA failed: %v", err))
+		}
+	} else {
+		testcase.WaitPolyTx(txhash, poly)
+		log.Infof("successful to sync chainsql root CA: (txhash: %s, \n CA: \n%s )", txhash.ToHexString(), string(raw))
 	}
 }
 

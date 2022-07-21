@@ -42,6 +42,7 @@ type TestConfig struct {
 	NeoChainID    uint64
 	FiscoChainID  uint64
 	FabricChainID uint64
+	ChainsqlChainID uint64
 
 	BtcRestAddr                  string
 	BtcRestUser                  string
@@ -90,6 +91,9 @@ type TestConfig struct {
 
 	// fisco chain
 	FiscoSdkConfFile string
+
+	//chainsql
+	ChainsqlSdkConfFile string
 
 	// fabric
 	FabricChannel     string
@@ -159,6 +163,11 @@ type TestConfig struct {
 	FiscoCCDC      string
 	FiscoEth       string
 	FiscoLockProxy string
+
+	// chainsql
+	ChainsqlCCMC      string
+	ChainsqlCCMCHex	  string
+	ChainsqlLockProxy string
 
 	// cosmos
 	CMLockProxy string
